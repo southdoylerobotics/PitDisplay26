@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3824 Pit Strategy Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f0f0f;
+            --card-bg: #1a1a1a;
+            --red-alliance: #ff4d4d;
+            --blue-alliance: #4d94ff;
+            --gold: #ffc107;
+            --text: #ffffff;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: var(--text); margin: 0; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 20px; border-radius: 12px; margin-bottom: 20px; border-bottom: 5px solid var(--gold); }
+        .win-prob-container { width: 350px; text-align: center; }
+        .prob-bar { width: 100%; height: 25px; background: #333; border-radius: 12px; overflow: hidden; display: flex; margin: 10px 0; }
+        .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); }
+        .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+        .citrus-badge { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1em; border: 1px solid rgba(255,255,255,0.1); }
+        .stat-label { font-size: 0.9em; color: #aaa; text-transform: uppercase; margin-bottom: 5px; }
+        .alliance-title { margin: 0 0 10px 0; font-size: 1.4em; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div>
+            <h1 style="margin:0; color: var(--gold);">NEXT MATCH: <span id="match-num">...</span></h1>
+            <p id="status-text" style="margin:5px 0 0 0; color: #888;">Fetching live data from Google Sheets...</p>
+        </div>
+        <div class="win-prob-container">
+            <div style="display:flex; justify-content: space-between; font-weight: bold;">
+                <span class="red-text">RED EPA: <span id="red-epa-val">0</span></span>
+                <span class="blue-text">BLUE EPA: <span id="blue-epa-val">0</span></span>
+            </div>
+            <div class="prob-bar">
+                <div id="red-fill" style="width: 50%; background: var(--red-alliance); transition: 1s;"></div>
+                <div id="blue-fill" style="width: 50%; background: var(--blue-alliance); transition: 1s;"></div>
+            </div>
+            <div style="display:flex; justify-content: space-between; font-size: 0.9em;">
+                <span id="red-prob-text">50%</span>
+                <span id="blue-prob-text">50%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="card">
+            <h3>Alliance Scoring Potential</h3>
+            <canvas id="scoringChart"></canvas>
+        </div>
+        <div class="card">
+            <h3>Navigation Habit (Bump vs Trench)</h3>
+            <canvas id="navChart"></canvas>
+        </div>
+        <div class="card">
+            <h3 class="red-text">Red Alliance Citrus Quality</h3>
+            <div id="red-citrus" class="badge-grid"></div>
+        </div>
+        <div class="card">
+            <h3 class="blue-text">Blue Alliance Citrus Quality</h3>
+            <div id="blue-citrus" class="badge-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // YOUR PUBLISHED GOOGLE SHEETS LINKS
+        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
+        
+        // Placeholder for other data sources (You can publish these as well!)
+        // const MATCHES_URL = "LINK_TO_TBA_MATCHES_CSV"; 
+        
+        let charts = {};
+
+        function getGreenShade(rank) {
+            const val = parseFloat(rank);
+            if (val >= 2.6) return "#1b5e20"; // Deep Green (Excellent)
+            if (val >= 1.8) return "#4caf50"; // Grass Green (Good)
+            return "#a5d6a7"; // Pale Green (Needs work)
+        }
+
+        async function updateDashboard() {
+            try {
+                // 1. Fetch the Averages from your Link
+                const response = await fetch(AVERAGES_URL);
+                const csvData = await response.text();
+                const results = Papa.parse(csvData, { header: true, dynamicTyping: true });
+                const teamAverages = results.data;
+
+                // 2. Identify Match Teams (In a real setup, this comes from your Live_Export sheet)
+                // Let's assume these are the teams for match 43 for demonstration
+                const redTeams = [8044, 16, 2183];
+                const blueTeams = [3824, 3468, 2221];
+                document.getElementById('match-num').innerText = "QM 43";
+
+                // 3. Process Data for Teams
+                const allMatchTeams = [...redTeams, ...blueTeams];
+                const matchData = allMatchTeams.map(num => {
+                    return teamAverages.find(t => t['Team Number'] == num) || { "Average Auto": 0, "Average Teleop": 0, "Average Endgame": 0, "Bump": "0%", "Trench": "0%", "Citrus": 1 };
+                });
+
+                updateProbability(redTeams, blueTeams); // Using logic below
+                renderCharts(allMatchTeams, matchData);
+                renderBadges(redTeams, blueTeams, teamAverages);
+                
+                document.getElementById('status-text').innerText = "Last Updated: " + new Date().toLocaleTimeString();
+
+            } catch (error) {
+                console.error("Error loading data:", error);
+                document.getElementById('status-text').innerText = "Offline - Check Internet/Link";
+            }
+        }
+
+        function updateProbability(red, blue) {
+            // Formula: P(Red Win) = 1 / (1 + 10^((BlueEPA - RedEPA)/65))
+            // Example totals
+            const rEPA = 175; const bEPA = 160; 
+            const diff = rEPA - bEPA;
+            const rProb = Math.round((1 / (1 + Math.pow(10, (-diff / 65)))) * 100);
+            
+            document.getElementById('red-epa-val').innerText = rEPA;
+            document.getElementById('blue-epa-val').innerText = bEPA;
+            document.getElementById('red-fill').style.width = rProb + "%";
+            document.getElementById('blue-fill').style.width = (100-rProb) + "%";
+            document.getElementById('red-prob-text').innerText = rProb + "%";
+            document.getElementById('blue-prob-text').innerText = (100-rProb) + "%";
+        }
+
+        function renderCharts(labels, data) {
+            if (charts.scoring) charts.scoring.destroy();
+            if (charts.nav) charts.nav.destroy();
+
+            // Scoring Chart (Stacked)
+            charts.scoring = new Chart(document.getElementById('scoringChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Auto', data: data.map(d => d['Average Auto']), backgroundColor: '#FFD700' },
+                        { label: 'Teleop', data: data.map(d => d['Average Teleop']), backgroundColor: '#42a5f5' },
+                        { label: 'Endgame', data: data.map(d => d['Average Endgame']), backgroundColor: '#66bb6a' }
+                    ]
+                },
+                options: { scales: { x: { stacked: true, ticks: {color: '#fff'} }, y: { stacked: true, ticks: {color: '#fff'} } }, plugins: { legend: { labels: {color: '#fff'} } } }
+            });
+
+            // Nav Chart (Horizontal)
+            charts.nav = new Chart(document.getElementById('navChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Bump %', data: data.map(d => parseFloat(d['Bump'])), backgroundColor: '#ef5350' },
+                        { label: 'Trench %', data: data.map(d => parseFloat(d['Trench'])), backgroundColor: '#ab47bc' }
+                    ]
+                },
+                options: { indexAxis: 'y', scales: { x: { max: 100, ticks: {color: '#fff'} }, y: { ticks: {color: '#fff'} } }, plugins: { legend: { labels: {color: '#fff'} } } }
+            });
+        }
+
+        function renderBadges(red, blue, averages) {
+            const rCont = document.getElementById('red-citrus');
+            const bCont = document.getElementById('blue-citrus');
+            rCont.innerHTML = ''; bCont.innerHTML = '';
+
+            const createBadge = (num) => {
+                const team = averages.find(t => t['Team Number'] == num) || { Citrus: 1 };
+                const rank = parseFloat(team.Citrus).toFixed(1);
+                return `<div class="citrus-badge" style="background:${getGreenShade(rank)}">Team ${num}<br><span style="font-size:0.8em; opacity:0.8">Rank: ${rank}</span></div>`;
+            };
+
+            red.forEach(n => rCont.innerHTML += createBadge(n));
+            blue.forEach(n => bCont.innerHTML += createBadge(n));
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(updateDashboard, 30000);
+        updateDashboard();
+    </script>
+</body>
+</html>
