@@ -24,8 +24,29 @@
 
         /* LIVE BANNER */
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
-        .live-banner.queueing { animation: flash 1s infinite; border-color: #d32f2f; }
-        @keyframes flash { 0% { background: #d32f2f; } 50% { background: #ff5252; } 100% { background: #d32f2f; } }
+
+        /* FULL SCREEN WARNING OVERLAY */
+        .warning-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 9999; display: flex; justify-content: center; align-items: center;
+            flex-direction: column; animation: fullScreenFlash 1s infinite;
+            /* Added a dark semi-transparent background so the flash isn't entirely blinding, just the container */
+            background: rgba(0, 0, 0, 0.85); 
+        }
+        @keyframes fullScreenFlash {
+            0% { background-color: rgba(211, 47, 47, 0.95); }
+            50% { background-color: rgba(255, 82, 82, 0.95); }
+            100% { background-color: rgba(211, 47, 47, 0.95); }
+        }
+        .warning-content { text-align: center; text-shadow: 2px 2px 10px rgba(0,0,0,0.8); }
+        .warning-content h1 { font-size: 6rem; margin: 0; color: #fff; }
+        .warning-content h2 { font-size: 4rem; margin: 10px 0 50px 0; color: var(--gold); }
+        .warning-btn {
+            font-size: 3rem; font-weight: bold; padding: 30px 60px; border-radius: 15px;
+            background: #fff; color: #d32f2f; border: none; cursor: pointer;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8); transition: transform 0.1s;
+        }
+        .warning-btn:active { transform: scale(0.95); }
 
         /* GRID */
         .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
@@ -56,6 +77,14 @@
 </head>
 <body>
 
+    <div id="full-screen-warning" class="warning-overlay" style="display: none;">
+        <div class="warning-content">
+            <h1>TIME TO QUEUE!</h1>
+            <h2>MATCHES AWAY: <span id="warning-matches-away">--</span></h2>
+            <button class="warning-btn" onclick="dismissWarning()">ON OUR WAY!</button>
+        </div>
+    </div>
+
     <div class="dashboard-wrapper">
         <div class="header">
             <div>
@@ -81,7 +110,6 @@
                 <span id="bumper-color" style="margin-left: 15px; font-weight: 800; text-shadow: 1px 1px 2px black;"></span>
             </div>
             <div>MATCHES AWAY: <span id="matches-away">--</span></div>
-            <button id="dismiss-btn" style="display:none; padding:5px 10px; font-weight:bold; cursor:pointer;" onclick="dismissWarning()">ON OUR WAY!</button>
         </div>
 
         <div class="content-grid">
@@ -186,6 +214,9 @@
             document.getElementById('field-match').innerText = currentFieldMatchNum;
             document.getElementById('target-match').innerText = targetMatchNum;
             document.getElementById('matches-away').innerText = matchesAway;
+            
+            // Set the full screen warning text
+            document.getElementById('warning-matches-away').innerText = matchesAway;
 
             scheduleData = tbaData
                 .filter(row => String(row['Comp Level'] || '').toLowerCase() === 'qm') 
@@ -233,14 +264,12 @@
                 bumperSpan.innerText = "";
             }
 
-            const banner = document.getElementById('live-banner');
-            const btn = document.getElementById('dismiss-btn');
+            // Queueing Logic: Show the full screen overlay
+            const overlay = document.getElementById('full-screen-warning');
             if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetMatchNum) {
-                banner.classList.add('queueing');
-                btn.style.display = "block";
+                overlay.style.display = "flex";
             } else {
-                banner.classList.remove('queueing');
-                btn.style.display = "none";
+                overlay.style.display = "none";
             }
         }
 
@@ -424,8 +453,7 @@
 
         function dismissWarning() {
             dismissedMatch = Number(document.getElementById('target-match').innerText);
-            document.getElementById('live-banner').classList.remove('queueing');
-            document.getElementById('dismiss-btn').style.display = "none";
+            document.getElementById('full-screen-warning').style.display = "none";
         }
 
         fetchData();
