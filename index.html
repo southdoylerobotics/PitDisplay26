@@ -165,17 +165,30 @@
 
     <script>
         // --- VIDEO SYSTEM LOGIC ---
-        function setupVideoPicker() {
-            const picker = document.getElementById('video-match-picker');
-            if (typeof availableMatches !== 'undefined' && availableMatches.length > 0) {
-                picker.innerHTML = availableMatches.map(m => 
-                    `<option value="${m}">${m.replace('_', ' ')}</option>`
-                ).join('');
-                updateVideoSources();
-            } else {
-                picker.innerHTML = "<option>No local videos found</option>";
-            }
+    function setupVideoPicker() {
+        const picker = document.getElementById('video-match-picker');
+    
+        // Get the match we JUST finished (Target Match - 1)
+        const currentFieldMatch = Number(document.getElementById('field-match').innerText);
+        const lastPlayedMatchNum = `Match_${currentFieldMatch}`;
+
+        if (typeof availableMatches !== 'undefined' && availableMatches.length > 0) {
+            picker.innerHTML = availableMatches.map(m => 
+                `<option value="${m}">${m.replace('_', ' ')}</option>`
+            ).join('');
+
+        // SMART AUTO-SELECT: 
+        // If the match we just played is available in our local videos, select it!
+        if (availableMatches.includes(lastPlayedMatchNum)) {
+            picker.value = lastPlayedMatchNum;
+        } else {
+            // Otherwise, just pick the most recent match we've downloaded
+            picker.selectedIndex = availableMatches.length - 1;
         }
+        
+        updateVideoSources();
+    }
+}
 
         function updateVideoSources() {
             const match = document.getElementById('video-match-picker').value;
