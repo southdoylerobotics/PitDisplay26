@@ -28,8 +28,8 @@
             flex: none; display: flex; justify-content: space-between; align-items: center;
             background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold);
         }
-        .header-controls { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
-        .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
+        .header-controls { display: flex; flex-direction: column; gap: 4px; }
+        .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; cursor: pointer; }
         
         .win-prob-container { width: 300px; text-align: center; }
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
@@ -38,24 +38,21 @@
         .live-banner {
             flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px;
             display: flex; justify-content: space-between; align-items: center; border: 1px solid #333;
-            font-weight: bold; font-size: 1.1rem; transition: background 0.3s;
+            font-weight: bold; font-size: 1.1rem;
         }
-        .live-banner.queueing {
-            animation: flash 1s infinite; border-color: #d32f2f; color: white;
-        }
+        .live-banner.queueing { animation: flash 1s infinite; border-color: #d32f2f; color: white; }
         .live-banner button {
             display: none; padding: 6px 15px; font-weight: bold; background: white; color: #d32f2f;
             border: none; border-radius: 4px; cursor: pointer;
         }
         .live-banner.queueing button { display: inline-block; }
-        .live-banner.queueing button:hover { background: #ffebee; }
         @keyframes flash { 0% { background: #d32f2f; } 50% { background: #ff5252; } 100% { background: #d32f2f; } }
 
         /* MAIN SPLIT GRID */
         .content-grid {
             flex: 1 1 0; display: grid; 
-            grid-template-columns: 1fr 1fr; /* Exact 50/50 Split */
-            grid-template-rows: 1fr 1.2fr 0.8fr; /* Combined, Breakdowns, Nav/Citrus */
+            grid-template-columns: 1fr 1fr; 
+            grid-template-rows: 1fr 1.2fr 0.8fr; 
             gap: 8px; min-height: 0;
         }
 
@@ -63,29 +60,25 @@
             background: var(--card-bg); padding: 10px; border-radius: 6px; 
             display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
-        .combined-card { grid-column: 1 / -1; } /* Spans across both Red and Blue columns */
+        .combined-card { grid-column: 1 / -1; } 
         
-        /* Strictly Red Left, Blue Right Borders */
         .red-card { border-left: 4px solid var(--red-alliance); }
         .blue-card { border-left: 4px solid var(--blue-alliance); }
 
-        h3 { flex: none; margin: 0 0 6px 0; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
-        h1 { margin: 0; color: var(--gold); font-size: 1.3rem; }
+        h3 { flex: none; margin: 0 0 6px 0; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        h1 { margin: 0; color: var(--gold); font-size: 1.2rem; }
         .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
         #status-text { font-size: 0.7em; color: #777; }
 
         .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; min-height: 0; }
         
-        /* Bottom Row Layout (Nav + Citrus side-by-side inside the card) */
-        .bottom-row-content { display: flex; flex: 1 1 0; gap: 10px; min-height: 0; }
-        .pie-container { flex: 1; position: relative; min-height: 0; }
+        .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; min-height: 0; }
         
         /* SHRUNKEN CITRUS BADGES */
-        .badge-grid { flex: 1; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; min-height: 0; }
+        .badge-grid { flex: 0 0 90px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; min-height: 0; }
         .citrus-badge {
-            display: flex; justify-content: space-between; align-items: center;
-            border-radius: 4px; font-weight: bold; font-size: 0.8em; padding: 0 8px; 
-            border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            border-radius: 4px; font-weight: bold; font-size: 0.75em; border: 1px solid rgba(255,255,255,0.1); color: #fff;
         }
     </style>
 </head>
@@ -94,10 +87,10 @@
     <div class="dashboard-wrapper">
         <div class="header">
             <div>
-                <h1>3824 PIT STRATEGY</h1>
+                <h1>3824 STRATEGY</h1>
                 <div class="header-controls">
                     <select id="match-selector" class="match-select" onchange="switchMatch()"></select>
-                    <span id="status-text">Connecting to Google Sheets...</span>
+                    <span id="status-text">Syncing...</span>
                 </div>
             </div>
             <div class="win-prob-container">
@@ -118,68 +111,58 @@
         <div id="live-banner" class="live-banner">
             <div>
                 <span>Field Match: <span id="field-match" style="color:var(--gold);">--</span></span>
-                <span style="margin: 0 15px; color: #555;">|</span>
-                <span>Next 3824 Match: <span id="target-match" style="color:var(--gold);">--</span></span>
+                <span style="margin: 0 10px; color: #444;">|</span>
+                <span>Next 3824: <span id="target-match" style="color:var(--gold);">--</span></span>
             </div>
-            <div id="queue-status-text">
-                MATCHES AWAY: <span id="matches-away">--</span>
-            </div>
-            <button onclick="dismissWarning()">We are on our way!</button>
+            <div id="queue-status-text">MATCHES AWAY: <span id="matches-away">--</span></div>
+            <button onclick="dismissWarning()">ON OUR WAY!</button>
         </div>
 
         <div class="content-grid">
-            
             <div class="card combined-card">
                 <h3>Alliance Combined Scoring Potential</h3>
                 <div class="chart-container"><canvas id="combinedScoringChart"></canvas></div>
             </div>
 
             <div class="card red-card">
-                <h3 class="red-text">Red Team Breakdown</h3>
+                <h3 class="red-text">Red Individual Breakdown</h3>
                 <div class="chart-container"><canvas id="redBreakdownChart"></canvas></div>
             </div>
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Team Breakdown</h3>
+                <h3 class="blue-text">Blue Individual Breakdown</h3>
                 <div class="chart-container"><canvas id="blueBreakdownChart"></canvas></div>
             </div>
 
             <div class="card red-card">
-                <h3 class="red-text">Red Nav & Citrus</h3>
+                <h3 class="red-text">Red Nav (Bump/Trench) & Citrus</h3>
                 <div class="bottom-row-content">
-                    <div class="pie-container"><canvas id="redNavPie"></canvas></div>
+                    <div class="chart-container"><canvas id="redNavChart"></canvas></div>
                     <div id="red-citrus" class="badge-grid"></div>
                 </div>
             </div>
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Nav & Citrus</h3>
+                <h3 class="blue-text">Blue Nav (Bump/Trench) & Citrus</h3>
                 <div class="bottom-row-content">
-                    <div class="pie-container"><canvas id="blueNavPie"></canvas></div>
+                    <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
                     <div id="blue-citrus" class="badge-grid"></div>
                 </div>
             </div>
-
         </div>
     </div>
 
     <script>
-        // --- 1. SET YOUR GOOGLE SHEET LINKS HERE ---
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-        
-        // PASTE YOUR LIVE_EXPORT CSV LINK HERE!
         const LIVE_EXPORT_URL = "INSERT_LIVE_EXPORT_CSV_LINK_HERE"; 
-        // -------------------------------------------
 
         let charts = {};
         let teamDataCache = [];
         let dismissedMatch = -1;
 
-        // Mock Schedule (Update manually or pull from TBA eventually)
         const MATCH_SCHEDULE = [
-            { num: 43, title: "Quals 43", red: [16, 8044, 2183], blue: [3824, 3468, 2221] },
-            { num: 55, title: "Quals 55", red: [3824, 118, 254], blue: [1678, 1323, 2056] }
+            { num: 43, title: "Match 43", red: [16, 8044, 2183], blue: [3824, 3468, 2221] },
+            { num: 55, title: "Match 55", red: [3824, 118, 254], blue: [1678, 1323, 2056] }
         ];
 
-        // Init Dropdown
         const selector = document.getElementById('match-selector');
         MATCH_SCHEDULE.forEach((m, idx) => {
             const opt = document.createElement('option');
@@ -194,168 +177,119 @@
             return "#a5d6a7"; 
         }
 
-        async function fetchGoogleSheets() {
+        async function fetchData() {
             try {
-                // 1. Fetch Main Averages
                 const avgRes = await fetch(AVERAGES_URL);
                 const avgCsv = await avgRes.text();
                 teamDataCache = Papa.parse(avgCsv, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
                 
-                // 2. Fetch Live Export (Match Tracker)
-                if (LIVE_EXPORT_URL !== "INSERT_LIVE_EXPORT_CSV_LINK_HERE") {
+                if (LIVE_EXPORT_URL.includes("http")) {
                     const liveRes = await fetch(LIVE_EXPORT_URL);
                     const liveCsv = await liveRes.text();
                     const liveData = Papa.parse(liveCsv, { header: true, skipEmptyLines: true, dynamicTyping: true }).data;
-                    
-                    // ASSUMES your Live_Export sheet has a column named "Current Match" in the first row. 
-                    // Change 'Current Match' to match your actual column header exactly!
-                    if (liveData[0] && liveData[0]['Current Match']) {
-                        updateMatchTracker(liveData[0]['Current Match']);
-                    }
+                    if (liveData[0]) updateMatchTracker(liveData[0]['Current Match']);
+                } else {
+                    updateMatchTracker(null); // Mock behavior
                 }
 
-                document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+                document.getElementById('status-text').innerText = "Updated: " + new Date().toLocaleTimeString();
                 updateDashboard();
-            } catch (error) {
-                console.error(error);
-                document.getElementById('status-text').innerText = "SYNC FAILED...";
-            }
+            } catch (e) { document.getElementById('status-text').innerText = "Sync Error"; }
         }
 
-        function switchMatch() { updateDashboard(); updateMatchTracker(null); }
-
-        function updateMatchTracker(liveCurrentMatch) {
-            const selectedMatch = MATCH_SCHEDULE[selector.value];
-            const targetMatchNum = selectedMatch.num;
-            
-            // If Live_Export fails, fallback to a mock number so the UI doesn't break
-            const currentFieldMatch = liveCurrentMatch ? parseInt(liveCurrentMatch) : (targetMatchNum - 4); 
-            
-            const matchesAway = targetMatchNum - currentFieldMatch;
+        function updateMatchTracker(liveCurrent) {
+            const target = MATCH_SCHEDULE[selector.value].num;
+            const current = liveCurrent ? parseInt(liveCurrent) : (target - 5);
+            const away = target - current;
             const banner = document.getElementById('live-banner');
 
-            document.getElementById('field-match').innerText = currentFieldMatch;
-            document.getElementById('target-match').innerText = targetMatchNum;
-            document.getElementById('matches-away').innerText = matchesAway;
+            document.getElementById('field-match').innerText = current;
+            document.getElementById('target-match').innerText = target;
+            document.getElementById('matches-away').innerText = away;
 
-            // Trigger Warning if 2 or fewer matches away
-            if (matchesAway > 0 && matchesAway <= 2 && dismissedMatch !== targetMatchNum) {
+            if (away > 0 && away <= 2 && dismissedMatch !== target) {
                 banner.classList.add('queueing');
-                document.getElementById('queue-status-text').innerText = `⚠️ QUEUEING WARNING: ${matchesAway} MATCHES AWAY ⚠️`;
+                document.getElementById('queue-status-text').innerText = `⚠️ QUEUE NOW: ${away} AWAY ⚠️`;
             } else {
                 banner.classList.remove('queueing');
-                document.getElementById('queue-status-text').innerHTML = `MATCHES AWAY: <span id="matches-away">${matchesAway}</span>`;
+                document.getElementById('queue-status-text').innerHTML = `MATCHES AWAY: ${away}`;
             }
         }
 
         function dismissWarning() {
-            const selectedMatch = MATCH_SCHEDULE[selector.value];
-            dismissedMatch = selectedMatch.num;
+            dismissedMatch = MATCH_SCHEDULE[selector.value].num;
             document.getElementById('live-banner').classList.remove('queueing');
-            document.getElementById('queue-status-text').innerHTML = `MATCHES AWAY: <span id="matches-away">${selectedMatch.num - parseInt(document.getElementById('field-match').innerText)}</span>`;
         }
 
-        function updateDashboard() {
-            if (teamDataCache.length === 0) return;
-            const selectedMatch = MATCH_SCHEDULE[selector.value];
-            
-            const getTeam = (num) => teamDataCache.find(t => t['Team Number'] == num) || { "Avg Auto": 0, "Avg Teleop": 0, "Avg Endgame": 0, "Avg Total": 0, "Bump %": 0, "Trench %": 0, "Avg Citrus": 1 };
-            
-            const redData = selectedMatch.red.map(getTeam);
-            const blueData = selectedMatch.blue.map(getTeam);
+        function switchMatch() { updateDashboard(); updateMatchTracker(null); }
 
-            const redEPA = redData.reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
-            const blueEPA = blueData.reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+        function updateDashboard() {
+            if (!teamDataCache.length) return;
+            const match = MATCH_SCHEDULE[selector.value];
+            const getT = (n) => teamDataCache.find(t => t['Team Number'] == n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
             
-            // Win Prob Logic
-            const diff = redEPA - blueEPA;
-            const rProb = Math.round((1 / (1 + Math.pow(10, (-diff / 65)))) * 100);
-            document.getElementById('red-epa-val').innerText = redEPA.toFixed(1);
-            document.getElementById('blue-epa-val').innerText = blueEPA.toFixed(1);
+            const rD = match.red.map(getT); const bD = match.blue.map(getT);
+            const rEPA = rD.reduce((s, t) => s + (t['Avg Total'] || 0), 0);
+            const bEPA = bD.reduce((s, t) => s + (t['Avg Total'] || 0), 0);
+
+            const rProb = Math.round((1 / (1 + Math.pow(10, (-(rEPA - bEPA) / 65)))) * 100);
+            document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
+            document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
             document.getElementById('red-fill').style.width = rProb + "%";
             document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
             document.getElementById('red-prob-text').innerText = rProb + "%";
             document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
-            renderCharts(selectedMatch.red, selectedMatch.blue, redData, blueData);
-            renderBadges(selectedMatch.red, selectedMatch.blue);
+            renderCharts(match.red, match.blue, rD, bD);
+            renderBadges(match.red, match.blue);
         }
 
-        function renderCharts(redLabels, blueLabels, redData, blueData) {
+        function renderCharts(rLabs, bLabs, rD, bD) {
             Object.values(charts).forEach(c => c.destroy());
-            const sumStat = (data, key) => data.reduce((sum, t) => sum + (t[key] || 0), 0);
+            const sum = (d, k) => d.reduce((s, t) => s + (t[k] || 0), 0);
+            const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, y: { stacked: true, ticks: {color: '#fff', font: {size: 10}} } } };
 
-            const commonOptions = { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: {color: '#fff', font:{size: 10}} }, y: { stacked: true, ticks: {color: '#fff', font:{size: 10}} } } };
-
-            // 1. COMBINED ALLIANCE SCORING
-            charts.combined = new Chart(document.getElementById('combinedScoringChart'), {
-                type: 'bar',
-                data: {
-                    labels: ['Red Alliance', 'Blue Alliance'],
-                    datasets: [
-                        { label: 'Auto', data: [sumStat(redData, 'Avg Auto'), sumStat(blueData, 'Avg Auto')], backgroundColor: '#FFD700' },
-                        { label: 'Teleop', data: [sumStat(redData, 'Avg Teleop'), sumStat(blueData, 'Avg Teleop')], backgroundColor: '#42a5f5' },
-                        { label: 'Endgame', data: [sumStat(redData, 'Avg Endgame'), sumStat(blueData, 'Avg Endgame')], backgroundColor: '#66bb6a' }
-                    ]
-                },
-                options: { ...commonOptions, plugins: { legend: { position: 'bottom', labels: {color: '#fff', boxWidth: 12} } } }
+            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
+                type: 'bar', data: { labels: ['Red Alliance', 'Blue Alliance'], datasets: [
+                    { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
+                    { label: 'Teleop', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
+                    { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
+                ]}, options: { ...opt, plugins: { legend: { display: true, position: 'bottom', labels: {color: '#fff', boxWidth: 10}} } }
             });
 
-            // 2. RED BREAKDOWN (No Legend to save space)
-            charts.redBreakdown = new Chart(document.getElementById('redBreakdownChart'), {
-                type: 'bar',
-                data: {
-                    labels: redLabels,
-                    datasets: [
-                        { label: 'Auto', data: redData.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
-                        { label: 'Teleop', data: redData.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
-                        { label: 'Endgame', data: redData.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' }
-                    ]
-                },
-                options: { ...commonOptions, plugins: { legend: { display: false } } }
+            const breakdown = (id, labs, dat) => new Chart(document.getElementById(id), {
+                type: 'bar', data: { labels: labs, datasets: [
+                    { label: 'Auto', data: dat.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
+                    { label: 'Teleop', data: dat.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
+                    { label: 'End', data: dat.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' }
+                ]}, options: opt
             });
+            charts.rB = breakdown('redBreakdownChart', rLabs, rD);
+            charts.bB = breakdown('blueBreakdownChart', bLabs, bD);
 
-            // 3. BLUE BREAKDOWN (No Legend to save space)
-            charts.blueBreakdown = new Chart(document.getElementById('blueBreakdownChart'), {
-                type: 'bar',
-                data: {
-                    labels: blueLabels,
-                    datasets: [
-                        { label: 'Auto', data: blueData.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
-                        { label: 'Teleop', data: blueData.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
-                        { label: 'Endgame', data: blueData.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' }
-                    ]
-                },
-                options: { ...commonOptions, plugins: { legend: { display: false } } }
+            const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
+                type: 'bar', data: { labels: labs, datasets: [
+                    { label: 'Bump', data: dat.map(d => (parseFloat(d['Bump %'])*100)||0), backgroundColor: '#ef5350' },
+                    { label: 'Trench', data: dat.map(d => (parseFloat(d['Trench %'])*100)||0), backgroundColor: '#ab47bc' }
+                ]}, options: { ...opt, indexAxis: 'y', scales: { x: { max:100, ticks:{color:'#fff', font:{size:9}} }, y: { ticks:{color:'#fff', font:{size:10}} } } }
             });
-
-            // 4. NAV PIE CHARTS (No Legend)
-            const makePie = (id, dataObj) => {
-                const b = sumStat(dataObj, 'Bump %'); const t = sumStat(dataObj, 'Trench %');
-                return new Chart(document.getElementById(id), {
-                    type: 'doughnut',
-                    data: { labels: ['Bump', 'Trench'], datasets: [{ data: [b, t], backgroundColor: ['#ef5350', '#ab47bc'], borderWidth: 0 }] },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '50%', plugins: { legend: { display: false } } }
-                });
-            };
-            charts.redPie = makePie('redNavPie', redData);
-            charts.bluePie = makePie('blueNavPie', blueData);
+            charts.rN = nav('redNavChart', rLabs, rD);
+            charts.bN = nav('blueNavChart', bLabs, bD);
         }
 
         function renderBadges(red, blue) {
             const draw = (list, id) => {
                 const el = document.getElementById(id); el.innerHTML = '';
                 list.forEach(n => {
-                    const t = teamDataCache.find(x => x['Team Number'] == n) || { "Avg Citrus": 1 };
+                    const t = teamDataCache.find(x => x['Team Number'] == n) || {"Avg Citrus": 1};
                     const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
-                    el.innerHTML += `<div class="citrus-badge" style="background:${getGreenShade(rnk)}"><span>T-${n}</span> <span>${rnk}</span></div>`;
+                    el.innerHTML += `<div class="citrus-badge" style="background:${getGreenShade(rnk)}">T-${n}<br>${rnk}</div>`;
                 });
             };
             draw(red, 'red-citrus'); draw(blue, 'blue-citrus');
         }
 
-        fetchGoogleSheets();
-        setInterval(fetchGoogleSheets, 30000);
+        fetchData(); setInterval(fetchData, 30000);
     </script>
 </body>
 </html>
