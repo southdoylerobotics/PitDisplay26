@@ -1,202 +1,241 @@
-// --- CONFIGURATION ---
-const TEAM_NUMBER = 3824;
-const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv"; 
-
-let charts = {};
-let teamDataCache = [];
-let scheduleData = [];
-let dismissedMatch = -1;
-let userManuallySelected = false; // Prevents the auto-sync from fighting the user
-
-async function fetchData() {
-    try {
-        const avgRes = await fetch(AVERAGES_URL);
-        const avgText = await avgRes.text();
-        teamDataCache = Papa.parse(avgText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-
-        const liveRes = await fetch(LIVE_EXPORT_URL);
-        const liveText = await liveRes.text();
-        const liveData = Papa.parse(liveText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-
-        if (liveData.length > 0) {
-            processLiveSchedule(liveData);
-            document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
-            updateDashboard();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3824 Pit Strategy Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #080808; --card-bg: #141414;
+            --red-alliance: #ff4d4d; --blue-alliance: #4d94ff;
+            --gold: #ffc107; --text: #ffffff;
         }
-    } catch (e) {
-        document.getElementById('status-text').innerText = "Sync Error!";
-        console.error("Fetch Error:", e);
-    }
-}
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
+        .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 8px; gap: 8px; }
 
-function processLiveSchedule(data) {
-    const currentFieldMatchNum = Number(data[0]['Current Match Number']) || 0;
-    document.getElementById('field-match').innerText = currentFieldMatchNum;
+        /* HEADER */
+        .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
+        .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
+        .win-prob-container { width: 300px; text-align: center; }
+        .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
 
-    scheduleData = data.map(row => {
-        const parseAlliance = (str) => {
-            if (!str) return [0,0,0];
-            return str.toString().split(',').map(t => Number(t.trim()));
-        };
-        
-        // Clean up "2026lake_qm59" -> "59"
-        const rawId = row['Match ID'] ? row['Match ID'].toString() : "";
-        const cleanId = rawId.includes('_qm') ? rawId.split('_qm')[1] : rawId;
+        /* LIVE BANNER */
+        .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
+        .live-banner.queueing { animation: flash 1s infinite; border-color: #d32f2f; }
+        @keyframes flash { 0% { background: #d32f2f; } 50% { background: #ff5252; } 100% { background: #d32f2f; } }
 
-        return {
-            id: Number(cleanId), 
-            rawId: rawId,
-            redTeams: parseAlliance(row['Red Alliance']),
-            blueTeams: parseAlliance(row['Blue Alliance']),
-            redEPA: Number(row['Red EPA']),
-            blueEPA: Number(row['Blue EPA']),
-            away: Number(row['Matches Until 3824'])
-        };
-    }).filter(m => m.id);
+        /* GRID */
+        .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
+        .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .combined-card { grid-column: 1 / -1; } 
+        .red-card { border-left: 4px solid var(--red-alliance); }
+        .blue-card { border-left: 4px solid var(--blue-alliance); }
+        h3 { flex: none; margin: 0 0 6px 0; font-size: 0.85rem; text-transform: uppercase; }
+        .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
+        .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
+        .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
+        .badge-grid { flex: 0 0 90px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
+        .citrus-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; font-size: 0.75em; border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px black;}
+    </style>
+</head>
+<body>
 
-    const selector = document.getElementById('match-selector');
-    const previousVal = selector.value;
-    selector.innerHTML = '';
-    
-    // Sort schedule numerically
-    scheduleData.sort((a,b) => a.id - b.id);
+    <div class="dashboard-wrapper">
+        <div class="header">
+            <div>
+                <h1 style="margin:0; color:var(--gold); font-size:1.2rem;">3824 STRATEGY</h1>
+                <select id="match-selector" class="match-select" onchange="handleManualSelection()"></select>
+                <span id="status-text" style="font-size:0.7em; color:#777; margin-left:10px;">Syncing...</span>
+            </div>
+            <div class="win-prob-container">
+                <div style="display:flex; justify-content: space-between; font-weight:bold; font-size:0.8rem;">
+                    <span class="red-text">RED EPA: <span id="red-epa-val">0</span></span>
+                    <span class="blue-text">BLUE EPA: <span id="blue-epa-val">0</span></span>
+                </div>
+                <div class="prob-bar"><div id="red-fill" style="width:50%; background:var(--red-alliance); transition:1s;"></div><div id="blue-fill" style="width:50%; background:var(--blue-alliance); transition:1s;"></div></div>
+                <div style="display:flex; justify-content: space-between; font-size:0.8em;"><span id="red-prob-text">50%</span><span id="blue-prob-text">50%</span></div>
+            </div>
+        </div>
 
-    scheduleData.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m.id;
-        opt.innerText = `Match ${m.id}`;
-        selector.appendChild(opt);
-    });
+        <div id="live-banner" class="live-banner">
+            <div>
+                <span>Field Match: <span id="field-match" style="color:var(--gold);">--</span></span>
+                <span style="margin: 0 10px; color: #444;">|</span>
+                <span>Next 3824: <span id="target-match" style="color:var(--gold);">--</span></span>
+            </div>
+            <div>MATCHES AWAY: <span id="matches-away">--</span></div>
+            <button id="dismiss-btn" style="display:none; padding:5px 10px; font-weight:bold;" onclick="dismissWarning()">ON OUR WAY!</button>
+        </div>
 
-    // FIND THE NEXT 3824 MATCH (Match Number >= Current Field Match)
-    const ourMatches = scheduleData.filter(m => [...m.redTeams, ...m.blueTeams].includes(TEAM_NUMBER));
-    const nextOurMatch = ourMatches.find(m => m.id >= currentFieldMatchNum);
+        <div class="content-grid">
+            <div class="card combined-card"><h3>Alliance Combined Potential</h3><div class="chart-container"><canvas id="combinedScoringChart"></canvas></div></div>
+            <div class="card red-card"><h3 class="red-text">Red Breakdown</h3><div class="chart-container"><canvas id="redBreakdownChart"></canvas></div></div>
+            <div class="card blue-card"><h3 class="blue-text">Blue Breakdown</h3><div class="chart-container"><canvas id="blueBreakdownChart"></canvas></div></div>
+            <div class="card red-card"><h3 class="red-text">Red Nav & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="redNavChart"></canvas></div><div id="red-citrus" class="badge-grid"></div></div></div>
+            <div class="card blue-card"><h3 class="blue-text">Blue Nav & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="blueNavChart"></canvas></div><div id="blue-citrus" class="badge-grid"></div></div></div>
+        </div>
+    </div>
 
-    if (nextOurMatch) {
-        // If we haven't manually touched the dropdown, or if it's the first load, force to next 3824 match
-        if (!userManuallySelected || !previousVal) {
-            selector.value = nextOurMatch.id;
+    <script>
+        const TEAM_NUMBER = 3824;
+        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
+        const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
+
+        let charts = {};
+        let teamDataCache = [];
+        let scheduleData = [];
+        let dismissedMatch = -1;
+        let userManuallySelected = false;
+
+        async function fetchData() {
+            try {
+                const avgRes = await fetch(AVERAGES_URL);
+                teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+
+                const liveRes = await fetch(LIVE_EXPORT_URL);
+                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+
+                if (liveData.length > 0) {
+                    processLiveSchedule(liveData);
+                    document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+                    updateDashboard();
+                }
+            } catch (e) { console.error("Fetch Error:", e); }
         }
 
-        document.getElementById('target-match').innerText = nextOurMatch.id;
-        document.getElementById('matches-away').innerText = nextOurMatch.away;
+        function processLiveSchedule(data) {
+            const currentFieldNum = Number(data[0]['Current Match Number']) || 0;
+            document.getElementById('field-match').innerText = currentFieldNum;
 
-        const banner = document.getElementById('live-banner');
-        if (nextOurMatch.away <= 2 && dismissedMatch !== nextOurMatch.id) {
-            banner.classList.add('queueing');
-        } else {
-            banner.classList.remove('queueing');
+            scheduleData = data.map(row => {
+                const parseAlliance = (str) => String(str || "").split(',').map(t => Number(t.trim()));
+                const rawId = row['Match ID'] ? row['Match ID'].toString() : "";
+                const cleanId = rawId.includes('_qm') ? Number(rawId.split('_qm')[1]) : Number(rawId);
+
+                return {
+                    id: cleanId,
+                    redTeams: parseAlliance(row['Red Alliance']),
+                    blueTeams: parseAlliance(row['Blue Alliance']),
+                    redEPA: Number(row['Red EPA'] || 0),
+                    blueEPA: Number(row['Blue EPA'] || 0),
+                    away: Number(row['Matches Until 3824'] || 0)
+                };
+            }).filter(m => m.id);
+
+            const selector = document.getElementById('match-selector');
+            const previousVal = selector.value;
+            selector.innerHTML = '';
+            scheduleData.sort((a,b) => a.id - b.id).forEach(m => {
+                const opt = document.createElement('option');
+                opt.value = m.id; opt.innerText = `Match ${m.id}`;
+                selector.appendChild(opt);
+            });
+
+            // Target Match Logic: Lock onto the first 3824 match that is NOT finished
+            const ourMatches = scheduleData.filter(m => [...m.redTeams, ...m.blueTeams].includes(TEAM_NUMBER));
+            const nextOurMatch = ourMatches.find(m => m.id >= currentFieldNum) || ourMatches[0];
+
+            if (nextOurMatch) {
+                if (!userManuallySelected || !previousVal) selector.value = nextOurMatch.id;
+                document.getElementById('target-match').innerText = nextOurMatch.id;
+                document.getElementById('matches-away').innerText = nextOurMatch.away;
+                
+                const banner = document.getElementById('live-banner');
+                const btn = document.getElementById('dismiss-btn');
+                if (nextOurMatch.away <= 2 && dismissedMatch !== nextOurMatch.id) {
+                    banner.classList.add('queueing');
+                    btn.style.display = "block";
+                } else {
+                    banner.classList.remove('queueing');
+                    btn.style.display = "none";
+                }
+            }
         }
-    }
-}
 
-function handleManualSelection() {
-    userManuallySelected = true;
-    updateDashboard();
-}
+        function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
 
-function updateDashboard() {
-    const selectedId = document.getElementById('match-selector').value;
-    const match = scheduleData.find(m => m.id == selectedId);
-    if (!match || !teamDataCache.length) return;
+        function updateDashboard() {
+            const selectedId = document.getElementById('match-selector').value;
+            const match = scheduleData.find(m => m.id == selectedId);
+            if (!match) return;
 
-    // DATA SCRUBBING: Force match between Schedule and Averages
-    const getT = (num) => {
-        const team = teamDataCache.find(t => {
-            const cacheNum = Number(t['Team Number'] || t['team_number'] || t['Team']);
-            return cacheNum === Number(num);
-        });
-        return team || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
-    };
-    
-    const rD = match.redTeams.map(getT);
-    const bD = match.blueTeams.map(getT);
+            const getT = (num) => teamDataCache.find(t => Number(t['Team Number'] || t['team_number'] || t['Team']) === Number(num)) || 
+                                {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
+            
+            const rD = match.redTeams.map(getT);
+            const bD = match.blueTeams.map(getT);
 
-    document.getElementById('red-epa-val').innerText = (match.redEPA || 0).toFixed(1);
-    document.getElementById('blue-epa-val').innerText = (match.blueEPA || 0).toFixed(1);
-    
-    const rProb = Math.round((1 / (1 + Math.pow(10, (-(match.redEPA - match.blueEPA) / 65)))) * 100);
-    document.getElementById('red-fill').style.width = rProb + "%";
-    document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
-    document.getElementById('red-prob-text').innerText = rProb + "%";
-    document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
+            document.getElementById('red-epa-val').innerText = match.redEPA.toFixed(1);
+            document.getElementById('blue-epa-val').innerText = match.blueEPA.toFixed(1);
+            const rProb = Math.round((1 / (1 + Math.pow(10, (-(match.redEPA - match.blueEPA) / 65)))) * 100);
+            document.getElementById('red-fill').style.width = rProb + "%";
+            document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
+            document.getElementById('red-prob-text').innerText = rProb + "%";
+            document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
-    renderCharts(match.redTeams, match.blueTeams, rD, bD);
-    renderBadges(match.redTeams, match.blueTeams);
-}
+            renderCharts(match.redTeams, match.blueTeams, rD, bD);
+            renderBadges(match.redTeams, match.blueTeams, getT);
+        }
 
-// PERCENTAGE HELPER: Handles 0.75 vs 75 correctly
-const toPct = (v) => {
-    let val = parseFloat(v) || 0;
-    return (val <= 1.1) ? (val * 100).toFixed(0) : val.toFixed(0);
-};
+        const toPct = (v) => { let val = parseFloat(v) || 0; return (val <= 1.1) ? (val * 100).toFixed(0) : val.toFixed(0); };
 
-function renderCharts(rLabs, bLabs, rD, bD) {
-    Object.values(charts).forEach(c => c.destroy());
-    const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
-    const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
-        scales: { 
-            x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, 
-            y: { stacked: true, ticks: {color: '#fff', font: {size: 10}} } 
-        } 
-    };
+        function renderCharts(rLabs, bLabs, rD, bD) {
+            Object.values(charts).forEach(c => c.destroy());
+            const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
+            const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, y: { stacked: true, ticks: {color: '#fff', font: {size: 10}} } } };
 
-    charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
-        type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
-            { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
-            { label: 'Teleop', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
-            { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
-        ]}, options: { ...opt, plugins: { legend: { display: true, position: 'bottom', labels: {color: '#fff', boxWidth: 10}} } }
-    });
+            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
+                type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
+                    { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
+                    { label: 'Teleop', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
+                    { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
+                ]}, options: { ...opt, plugins: { legend: { display: true, position: 'bottom', labels: {color: '#fff', boxWidth: 10}} } }
+            });
 
-    const breakdown = (id, labs, dat) => new Chart(document.getElementById(id), {
-        type: 'bar', data: { labels: labs, datasets: [
-            { label: 'Auto', data: dat.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
-            { label: 'Teleop', data: dat.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
-            { label: 'End', data: dat.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' }
-        ]}, options: opt
-    });
-    charts.rB = breakdown('redBreakdownChart', rLabs, rD);
-    charts.bB = breakdown('blueBreakdownChart', bLabs, bD);
+            const breakdown = (id, labs, dat) => new Chart(document.getElementById(id), {
+                type: 'bar', data: { labels: labs, datasets: [
+                    { label: 'Auto', data: dat.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
+                    { label: 'Teleop', data: dat.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
+                    { label: 'End', data: dat.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' }
+                ]}, options: opt
+            });
+            charts.rB = breakdown('redBreakdownChart', rLabs, rD);
+            charts.bB = breakdown('blueBreakdownChart', bLabs, bD);
 
-    const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
-        type: 'bar', data: { labels: labs, datasets: [
-            { label: 'Bump', data: dat.map(d => toPct(d['Bump %'] || d['Bump'])), backgroundColor: '#ef5350' },
-            { label: 'Trench', data: dat.map(d => toPct(d['Trench %'] || d['Trench'])), backgroundColor: '#ab47bc' }
-        ]}, options: { ...opt, indexAxis: 'y', scales: { x: { max:100, ticks:{color:'#fff', font:{size:9}} }, y: { ticks:{color:'#fff', font:{size:10}} } } }
-    });
-    charts.rN = nav('redNavChart', rLabs, rD);
-    charts.bN = nav('blueNavChart', bLabs, bD);
-}
+            const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
+                type: 'bar', data: { labels: labs, datasets: [
+                    { label: 'Bump', data: dat.map(d => toPct(d['Bump %'] || d['Bump'] || 0)), backgroundColor: '#ef5350' },
+                    { label: 'Trench', data: dat.map(d => toPct(d['Trench %'] || d['Trench'] || 0)), backgroundColor: '#ab47bc' }
+                ]}, options: { ...opt, indexAxis: 'y', scales: { x: { max:100, ticks:{color:'#fff', font:{size:9}} }, y: { ticks:{color:'#fff', font:{size:10}} } } }
+            });
+            charts.rN = nav('redNavChart', rLabs, rD);
+            charts.bN = nav('blueNavChart', bLabs, bD);
+        }
 
-function renderBadges(red, blue) {
-    const getShade = (v) => v <= 1.4 ? "#1b5e20" : v <= 2.2 ? "#4caf50" : "#a5d6a7";
-    const draw = (list, id) => {
-        const el = document.getElementById(id); el.innerHTML = '';
-        list.forEach(n => {
-            const t = getT(n); // Use the scrubbed lookup
-            const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
-            el.innerHTML += `<div class="citrus-badge" style="background:${getShade(rnk)}">T-${n}<br>${rnk}</div>`;
-        });
-    };
-    draw(red, 'red-citrus'); draw(blue, 'blue-citrus');
-}
+        function renderBadges(red, blue, getT) {
+            const getShade = (v) => v <= 1.4 ? "#1b5e20" : v <= 2.2 ? "#4caf50" : "#a5d6a7";
+            const draw = (list, id) => {
+                const el = document.getElementById(id); el.innerHTML = '';
+                list.forEach(n => {
+                    const t = getT(n);
+                    const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
+                    el.innerHTML += `<div class="citrus-badge" style="background:${getShade(rnk)}">T-${n}<br>${rnk}</div>`;
+                });
+            };
+            draw(red, 'red-citrus'); draw(blue, 'blue-citrus');
+        }
 
-// Wrapper for the team lookup used in badges
-function getT(num) {
-    const team = teamDataCache.find(t => Number(t['Team Number'] || t['team_number'] || t['Team']) === Number(num));
-    return team || {"Avg Citrus": 1};
-}
+        function dismissWarning() {
+            dismissedMatch = Number(document.getElementById('match-selector').value);
+            document.getElementById('live-banner').classList.remove('queueing');
+            document.getElementById('dismiss-btn').style.display = "none";
+        }
 
-function dismissWarning() {
-    dismissedMatch = Number(document.getElementById('match-selector').value);
-    document.getElementById('live-banner').classList.remove('queueing');
-}
-
-// Initial Call
-fetchData();
-setInterval(fetchData, 30000);
-
-// Update selector to use handleManualSelection
-document.getElementById('match-selector').setAttribute('onchange', 'handleManualSelection()');
+        fetchData();
+        setInterval(fetchData, 30000);
+    </script>
+</body>
+</html>
