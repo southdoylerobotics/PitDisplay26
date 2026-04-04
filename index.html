@@ -78,6 +78,7 @@
                 <span>Field Match: <span id="field-match" style="color:var(--gold);">--</span></span>
                 <span style="margin: 0 10px; color: #444;">|</span>
                 <span>Next 3824 Match: <span id="target-match" style="color:var(--gold);">--</span></span>
+                <span id="bumper-color" style="margin-left: 15px; font-weight: 800; text-shadow: 1px 1px 2px black;"></span>
             </div>
             <div>MATCHES AWAY: <span id="matches-away">--</span></div>
             <button id="dismiss-btn" style="display:none; padding:5px 10px; font-weight:bold; cursor:pointer;" onclick="dismissWarning()">ON OUR WAY!</button>
@@ -202,11 +203,27 @@
                 selector.appendChild(opt);
             });
 
+            // Find the calculated target match to auto-select and to determine bumper color
+            const calculatedMatch = scheduleData.find(m => m.id === targetMatchNum);
+            
             if (!userManuallySelected || !previousVal) {
-                const calculatedMatch = scheduleData.find(m => m.id === targetMatchNum);
-                if (calculatedMatch) {
-                    selector.value = calculatedMatch.id;
+                if (calculatedMatch) selector.value = calculatedMatch.id;
+            }
+
+            // Target Bumper Color Logic
+            const bumperSpan = document.getElementById('bumper-color');
+            if (calculatedMatch) {
+                if (calculatedMatch.redTeams.includes(TEAM_NUMBER)) {
+                    bumperSpan.innerText = "[ RED BUMPERS ]";
+                    bumperSpan.style.color = "var(--red-alliance)";
+                } else if (calculatedMatch.blueTeams.includes(TEAM_NUMBER)) {
+                    bumperSpan.innerText = "[ BLUE BUMPERS ]";
+                    bumperSpan.style.color = "var(--blue-alliance)";
+                } else {
+                    bumperSpan.innerText = "";
                 }
+            } else {
+                bumperSpan.innerText = "";
             }
 
             const banner = document.getElementById('live-banner');
@@ -275,7 +292,7 @@
         function renderTables(rLabs, bLabs, rD, bD) {
             const allTeams = [...rD, ...bD];
             
-            // Helper to get Total Points (uses the column if available, otherwise sums the 3 parts)
+            // Helper to get Total Points
             const getTot = (d) => parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0));
 
             // Find the maximum value in this match for each category to scale the heatmap colors
@@ -321,7 +338,6 @@
         };
 
         function renderCharts(rLabs, bLabs, rD, bD) {
-            // Only destroy existing charts, not the newly removed bar breakdowns
             if(charts.comb) charts.comb.destroy();
             if(charts.rN) charts.rN.destroy();
             if(charts.bN) charts.bN.destroy();
