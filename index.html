@@ -288,25 +288,28 @@
             renderStatsGrids(match.redTeams, match.blueTeams, getT, getRank);
         }
 
-        // Calculates Total and builds the heatmap tables
+        // Calculates Total and builds the discrete heatmap tables
         function renderTables(rLabs, bLabs, rD, bD) {
             const allTeams = [...rD, ...bD];
             
             // Helper to get Total Points
             const getTot = (d) => parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0));
 
-            // Find the maximum value in this match for each category to scale the heatmap colors
+            // Find the maximum value in this match for each category
             const maxA = Math.max(...allTeams.map(d => parseFloat(d['Avg Auto']) || 0), 0.1);
             const maxT = Math.max(...allTeams.map(d => parseFloat(d['Avg Teleop']) || 0), 0.1);
             const maxE = Math.max(...allTeams.map(d => parseFloat(d['Avg Endgame']) || 0), 0.1);
             const maxTot = Math.max(...allTeams.map(d => getTot(d)), 0.1);
 
+            // 3-Tier Discrete Color logic matching Citrus Rank style
             const getBg = (val, max, type) => {
                 if (!val || val === 0) return 'transparent';
-                // Calculate intensity (0.15 to 0.85 opacity based on relation to the max score)
-                const intensity = 0.15 + (0.7 * (val / max)); 
-                // Updated to match #ef5350 (Red) and #42a5f5 (Blue)
-                return type === 'red' ? `rgba(239, 83, 80, ${intensity})` : `rgba(66, 165, 245, ${intensity})`;
+                const ratio = val / max;
+                if (type === 'red') {
+                    return ratio >= 0.75 ? '#c62828' : ratio >= 0.35 ? '#ef5350' : '#ef9a9a';
+                } else {
+                    return ratio >= 0.75 ? '#1565c0' : ratio >= 0.35 ? '#42a5f5' : '#90caf9';
+                }
             };
 
             const buildRows = (labs, dat, type) => {
