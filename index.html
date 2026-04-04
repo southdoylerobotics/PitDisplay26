@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3824 Pit Strategy Dashboard</title>
+    <title>3824 Pit Strategy & Video Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    
+    <script src="matches/manifest.js"></script>
+
     <style>
         :root {
             --bg-color: #080808; --card-bg: #141414;
@@ -14,68 +17,54 @@
         }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
-        .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 8px; gap: 8px; }
+        
+        /* Navigation Tabs */
+        .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
+        .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .tab-btn.active { background: var(--gold); color: black; }
 
-        /* HEADER */
+        .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
+
+        /* Video Review Tab Styles */
+        #video-review-tab { display: none; height: 100%; flex-direction: column; gap: 10px; padding: 20px; }
+        .video-container { display: flex; gap: 15px; flex: 1; min-height: 0; }
+        .video-box { flex: 1; background: #000; border-radius: 8px; display: flex; flex-direction: column; align-items: center; padding: 10px; border: 1px solid #333; }
+        video { width: 100%; height: auto; max-height: 80%; border-radius: 4px; }
+        .video-controls { background: var(--card-bg); padding: 15px; border-radius: 8px; text-align: center; border: 1px solid var(--gold); }
+        .sync-btn { background: #27ae60; color: white; border: none; padding: 10px 25px; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 1.1em; }
+
+        /* Rest of your existing CSS below */
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
         .win-prob-container { width: 300px; text-align: center; }
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
-
-        /* LIVE BANNER */
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
-
-        /* FULL SCREEN WARNING OVERLAY */
-        .warning-overlay {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            z-index: 9999; display: flex; justify-content: center; align-items: center;
-            flex-direction: column; animation: fullScreenFlash 1s infinite;
-            /* Added a dark semi-transparent background so the flash isn't entirely blinding, just the container */
-            background: rgba(0, 0, 0, 0.85); 
-        }
-        @keyframes fullScreenFlash {
-            0% { background-color: rgba(211, 47, 47, 0.95); }
-            50% { background-color: rgba(255, 82, 82, 0.95); }
-            100% { background-color: rgba(211, 47, 47, 0.95); }
-        }
-        .warning-content { text-align: center; text-shadow: 2px 2px 10px rgba(0,0,0,0.8); }
+        .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
+        @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
+        .warning-content { text-align: center; }
         .warning-content h1 { font-size: 6rem; margin: 0; color: #fff; }
-        .warning-content h2 { font-size: 4rem; margin: 10px 0 50px 0; color: var(--gold); }
-        .warning-btn {
-            font-size: 3rem; font-weight: bold; padding: 30px 60px; border-radius: 15px;
-            background: #fff; color: #d32f2f; border: none; cursor: pointer;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8); transition: transform 0.1s;
-        }
-        .warning-btn:active { transform: scale(0.95); }
-
-        /* GRID */
+        .warning-btn { font-size: 3rem; font-weight: bold; padding: 30px 60px; border-radius: 15px; background: #fff; color: #d32f2f; border: none; cursor: pointer; }
         .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
         .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .combined-card { grid-column: 1 / -1; } 
-        .red-card { border-left: 4px solid var(--red-alliance); }
-        .blue-card { border-left: 4px solid var(--blue-alliance); }
+        .combined-card { grid-column: 1 / -1; } .red-card { border-left: 4px solid var(--red-alliance); } .blue-card { border-left: 4px solid var(--blue-alliance); }
         h3 { flex: none; margin: 0 0 6px 0; font-size: 0.85rem; text-transform: uppercase; }
         .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
-        
         .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
         .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
-        
-        /* DATA TABLES FOR BREAKDOWNS */
-        .table-container { flex: 1 1 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; height: 100%; }
-        .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; color: #ccc; font-size: 0.8em; text-transform: uppercase; }
-        .data-table td { padding: 4px; border-bottom: 1px solid #333; transition: background 0.5s; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-        .data-table tr:last-child td { border-bottom: none; }
-
-        /* GRIDS FOR STATS */
+        .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; color: #ccc; font-size: 0.8em; }
+        .data-table td { padding: 4px; border-bottom: 1px solid #333; }
         .badge-grid { flex: 0 0 115px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
         .death-grid { flex: 0 0 50px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
-        
-        .citrus-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; font-size: 0.70em; border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px black; text-align: center; padding: 2px;}
-        .death-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px black; text-align: center; padding: 2px;}
+        .citrus-badge, .death-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
+        <button class="tab-btn" onclick="switchTab('video')">MATCH VIDEO REVIEW</button>
+    </div>
 
     <div id="full-screen-warning" class="warning-overlay" style="display: none;">
         <div class="warning-content">
@@ -85,7 +74,7 @@
         </div>
     </div>
 
-    <div class="dashboard-wrapper">
+    <div id="strategy-tab" class="dashboard-wrapper">
         <div class="header">
             <div>
                 <h1 style="margin:0; color:var(--gold); font-size:1.2rem;">3824 STRATEGY</h1>
@@ -124,26 +113,16 @@
             
             <div class="card red-card">
                 <h3 class="red-text">Red Breakdown</h3>
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead>
-                        <tbody id="red-table-body"></tbody>
-                    </table>
-                </div>
+                <div class="table-container"><table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="red-table-body"></tbody></table></div>
             </div>
             
             <div class="card blue-card">
                 <h3 class="blue-text">Blue Breakdown</h3>
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead>
-                        <tbody id="blue-table-body"></tbody>
-                    </table>
-                </div>
+                <div class="table-container"><table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="blue-table-body"></tbody></table></div>
             </div>
             
             <div class="card red-card">
-                <h3 class="red-text">Red Nav, Reliability & Rank</h3>
+                <h3 class="red-text">Red Nav & Rank</h3>
                 <div class="bottom-row-content">
                     <div class="chart-container"><canvas id="redNavChart"></canvas></div>
                     <div id="red-deaths" class="death-grid"></div>
@@ -152,7 +131,7 @@
             </div>
             
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Nav, Reliability & Rank</h3>
+                <h3 class="blue-text">Blue Nav & Rank</h3>
                 <div class="bottom-row-content">
                     <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
                     <div id="blue-deaths" class="death-grid"></div>
@@ -162,8 +141,78 @@
         </div>
     </div>
 
+    <div id="video-review-tab">
+        <div class="video-controls">
+            <h2 style="margin-top: 0; color: var(--gold);">3824 MATCH REPLAY</h2>
+            <label>Select Match to Review: </label>
+            <select id="video-match-picker" class="match-select" onchange="updateVideoSources()" style="font-size: 1.2em; padding: 8px;">
+                <option>Loading matches...</option>
+            </select>
+            <button class="sync-btn" onclick="syncAndPlay()">SYNC & PLAY BOTH</button>
+        </div>
+
+        <div class="video-container">
+            <div class="video-box">
+                <h3 class="red-text">CLOSE-UP VIEW</h3>
+                <video id="vid-close" controls muted></video>
+            </div>
+            <div class="video-box">
+                <h3 class="blue-text">FAR-AWAY VIEW</h3>
+                <video id="vid-far" controls></video>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // --- FIVE GOOGLE SHEET LINKS ---
+        // --- VIDEO SYSTEM LOGIC ---
+        function setupVideoPicker() {
+            const picker = document.getElementById('video-match-picker');
+            if (typeof availableMatches !== 'undefined' && availableMatches.length > 0) {
+                picker.innerHTML = availableMatches.map(m => 
+                    `<option value="${m}">${m.replace('_', ' ')}</option>`
+                ).join('');
+                updateVideoSources();
+            } else {
+                picker.innerHTML = "<option>No local videos found</option>";
+            }
+        }
+
+        function updateVideoSources() {
+            const match = document.getElementById('video-match-picker').value;
+            const v1 = document.getElementById('vid-close');
+            const v2 = document.getElementById('vid-far');
+            v1.src = `matches/${match}/${match}_Close.mp4`;
+            v2.src = `matches/${match}/${match}_Far.mp4`;
+            v1.load(); v2.load();
+        }
+
+        function syncAndPlay() {
+            const v1 = document.getElementById('vid-close');
+            const v2 = document.getElementById('vid-far');
+            v1.currentTime = 0; v2.currentTime = 0;
+            v1.play(); v2.play();
+        }
+
+        function switchTab(tab) {
+            const strat = document.getElementById('strategy-tab');
+            const vid = document.getElementById('video-review-tab');
+            const btns = document.querySelectorAll('.tab-btn');
+
+            if (tab === 'strategy') {
+                strat.style.display = 'flex';
+                vid.style.display = 'none';
+                btns[0].classList.add('active');
+                btns[1].classList.remove('active');
+            } else {
+                strat.style.display = 'none';
+                vid.style.display = 'flex';
+                btns[1].classList.add('active');
+                btns[0].classList.remove('active');
+                setupVideoPicker(); // Update dropdown when switching
+            }
+        }
+
+        // --- YOUR ORIGINAL SCRIPT LOGIC (fetchData, Charts, etc.) ---
         const TEAM_NUMBER = 3824;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
@@ -182,13 +231,8 @@
         async function fetchData() {
             try {
                 const [avgRes, liveRes, tbaRes, epaRes, rankRes] = await Promise.all([
-                    fetch(AVERAGES_URL),
-                    fetch(LIVE_EXPORT_URL),
-                    fetch(TBA_MATCHES_URL),
-                    fetch(STATBOTICS_URL),
-                    fetch(TBA_RANKINGS_URL)
+                    fetch(AVERAGES_URL), fetch(LIVE_EXPORT_URL), fetch(TBA_MATCHES_URL), fetch(STATBOTICS_URL), fetch(TBA_RANKINGS_URL)
                 ]);
-
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
@@ -202,7 +246,6 @@
                 }
             } catch (e) {
                 document.getElementById('status-text').innerText = "Sync Error!";
-                console.error("Fetch Error:", e);
             }
         }
 
@@ -214,15 +257,12 @@
             document.getElementById('field-match').innerText = currentFieldMatchNum;
             document.getElementById('target-match').innerText = targetMatchNum;
             document.getElementById('matches-away').innerText = matchesAway;
-            
-            // Set the full screen warning text
             document.getElementById('warning-matches-away').innerText = matchesAway;
 
             scheduleData = tbaData
                 .filter(row => String(row['Comp Level'] || '').toLowerCase() === 'qm') 
                 .map(row => {
                     const getTeam = (col) => Number(String(row[col] || '').replace('frc', '').trim());
-
                     return {
                         id: Number(row['Match Number']),
                         redTeams: [getTeam('Red 1'), getTeam('Red 2'), getTeam('Red 3')],
@@ -233,55 +273,34 @@
             const selector = document.getElementById('match-selector');
             const previousVal = selector.value;
             selector.innerHTML = '';
-            
             scheduleData.sort((a,b) => a.id - b.id).forEach(m => {
                 const opt = document.createElement('option');
-                opt.value = m.id;
-                opt.innerText = `Match ${m.id}`;
+                opt.value = m.id; opt.innerText = `Match ${m.id}`;
                 selector.appendChild(opt);
             });
 
-            // Find the calculated target match to auto-select and to determine bumper color
             const calculatedMatch = scheduleData.find(m => m.id === targetMatchNum);
-            
             if (!userManuallySelected || !previousVal) {
                 if (calculatedMatch) selector.value = calculatedMatch.id;
             }
 
-            // Target Bumper Color Logic
             const bumperSpan = document.getElementById('bumper-color');
             if (calculatedMatch) {
                 if (calculatedMatch.redTeams.includes(TEAM_NUMBER)) {
-                    bumperSpan.innerText = "[ RED BUMPERS ]";
-                    bumperSpan.style.color = "var(--red-alliance)";
+                    bumperSpan.innerText = "[ RED BUMPERS ]"; bumperSpan.style.color = "var(--red-alliance)";
                 } else if (calculatedMatch.blueTeams.includes(TEAM_NUMBER)) {
-                    bumperSpan.innerText = "[ BLUE BUMPERS ]";
-                    bumperSpan.style.color = "var(--blue-alliance)";
-                } else {
-                    bumperSpan.innerText = "";
-                }
-            } else {
-                bumperSpan.innerText = "";
+                    bumperSpan.innerText = "[ BLUE BUMPERS ]"; bumperSpan.style.color = "var(--blue-alliance)";
+                } else { bumperSpan.innerText = ""; }
             }
 
-            // Queueing Logic: Show the full screen overlay
             const overlay = document.getElementById('full-screen-warning');
             if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetMatchNum) {
                 overlay.style.display = "flex";
-            } else {
-                overlay.style.display = "none";
-            }
+            } else { overlay.style.display = "none"; }
         }
 
-        function handleManualSelection() {
-            userManuallySelected = true;
-            updateDashboard();
-        }
-
-        // Shared helper function to calculate the "Total" score just like the table does
-        function getTeamTotalPoints(d) {
-            return parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0));
-        }
+        function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
+        function getTeamTotalPoints(d) { return parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0)); }
 
         function updateDashboard() {
             const selectedId = document.getElementById('match-selector').value;
@@ -311,52 +330,39 @@
 
             const rD = match.redTeams.map(getT);
             const bD = match.blueTeams.map(getT);
-
             const rEPA = match.redTeams.reduce((sum, t) => sum + getEPA(t), 0);
             const bEPA = match.blueTeams.reduce((sum, t) => sum + getEPA(t), 0);
 
             document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
             document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
-            
             const rProb = Math.round((1 / (1 + Math.pow(10, (-(rEPA - bEPA) / 65)))) * 100);
             document.getElementById('red-fill').style.width = rProb + "%";
             document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
             document.getElementById('red-prob-text').innerText = rProb + "%";
             document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
-            // Safely calculate the estimated total score using the exact table logic
             const rTotalScore = rD.reduce((acc, t) => acc + getTeamTotalPoints(t), 0);
             const bTotalScore = bD.reduce((acc, t) => acc + getTeamTotalPoints(t), 0);
-            
-            const rPotEl = document.getElementById('red-total-potential');
-            const bPotEl = document.getElementById('blue-total-potential');
-            if (rPotEl) rPotEl.innerText = rTotalScore.toFixed(1);
-            if (bPotEl) bPotEl.innerText = bTotalScore.toFixed(1);
+            document.getElementById('red-total-potential').innerText = rTotalScore.toFixed(1);
+            document.getElementById('blue-total-potential').innerText = bTotalScore.toFixed(1);
 
             renderTables(match.redTeams, match.blueTeams, rD, bD);
             renderCharts(match.redTeams, match.blueTeams, rD, bD);
             renderStatsGrids(match.redTeams, match.blueTeams, getT, getRank);
         }
 
-        // Calculates Total and builds the discrete heatmap tables
         function renderTables(rLabs, bLabs, rD, bD) {
             const allTeams = [...rD, ...bD];
-            
-            // Find the maximum value in this match for each category
             const maxA = Math.max(...allTeams.map(d => parseFloat(d['Avg Auto']) || 0), 0.1);
             const maxT = Math.max(...allTeams.map(d => parseFloat(d['Avg Teleop']) || 0), 0.1);
             const maxE = Math.max(...allTeams.map(d => parseFloat(d['Avg Endgame']) || 0), 0.1);
             const maxTot = Math.max(...allTeams.map(d => getTeamTotalPoints(d)), 0.1);
 
-            // 3-Tier Discrete Color logic matching Citrus Rank style
             const getBg = (val, max, type) => {
                 if (!val || val === 0) return 'transparent';
                 const ratio = val / max;
-                if (type === 'red') {
-                    return ratio >= 0.75 ? '#c62828' : ratio >= 0.35 ? '#ef5350' : '#ef9a9a';
-                } else {
-                    return ratio >= 0.75 ? '#1565c0' : ratio >= 0.35 ? '#42a5f5' : '#90caf9';
-                }
+                if (type === 'red') return ratio >= 0.75 ? '#c62828' : ratio >= 0.35 ? '#ef5350' : '#ef9a9a';
+                return ratio >= 0.75 ? '#1565c0' : ratio >= 0.35 ? '#42a5f5' : '#90caf9';
             };
 
             const buildRows = (labs, dat, type) => {
@@ -367,54 +373,34 @@
                     const t = parseFloat(d['Avg Teleop']) || 0;
                     const e = parseFloat(d['Avg Endgame']) || 0;
                     const tot = getTeamTotalPoints(d);
-
-                    html += `<tr>
-                        <td style="font-weight:bold; color: var(--gold);">${team}</td>
-                        <td style="background:${getBg(a, maxA, type)}">${a.toFixed(1)}</td>
-                        <td style="background:${getBg(t, maxT, type)}">${t.toFixed(1)}</td>
-                        <td style="background:${getBg(e, maxE, type)}">${e.toFixed(1)}</td>
-                        <td style="background:${getBg(tot, maxTot, type)}; font-weight:bold;">${tot.toFixed(1)}</td>
-                    </tr>`;
+                    html += `<tr><td style="color:var(--gold); font-weight:bold;">${team}</td><td style="background:${getBg(a, maxA, type)}">${a.toFixed(1)}</td><td style="background:${getBg(t, maxT, type)}">${t.toFixed(1)}</td><td style="background:${getBg(e, maxE, type)}">${e.toFixed(1)}</td><td style="background:${getBg(tot, maxTot, type)}; font-weight:bold;">${tot.toFixed(1)}</td></tr>`;
                 });
                 return html;
             };
-
             document.getElementById('red-table-body').innerHTML = buildRows(rLabs, rD, 'red');
             document.getElementById('blue-table-body').innerHTML = buildRows(bLabs, bD, 'blue');
         }
-
-        const toPct = (v) => {
-            let val = parseFloat(v) || 0;
-            return (val <= 1.1) ? (val * 100).toFixed(0) : val.toFixed(0);
-        };
 
         function renderCharts(rLabs, bLabs, rD, bD) {
             if(charts.comb) charts.comb.destroy();
             if(charts.rN) charts.rN.destroy();
             if(charts.bN) charts.bN.destroy();
-
             const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
-            
-            const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
-                scales: { 
-                    x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, 
-                    y: { stacked: true, ticks: {color: '#fff', font: {size: 10}} } 
-                } 
-            };
+            const toPct = (v) => { let val = parseFloat(v) || 0; return (val <= 1.1) ? (val * 100).toFixed(0) : val.toFixed(0); };
 
             charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
                 type: 'bar', data: { labels: ['Red Alliance', 'Blue Alliance'], datasets: [
                     { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
                     { label: 'Teleop', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
                     { label: 'Endgame', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
-                ]}, options: { ...opt, plugins: { legend: { display: true, position: 'bottom', labels: {color: '#fff', boxWidth: 10}} } }
+                ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, labels: {color: '#fff'}}} }
             });
 
             const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
                 type: 'bar', data: { labels: labs, datasets: [
-                    { label: 'Bump', data: dat.map(d => toPct(d['Bump %'] || d['Bump'] || 0)), backgroundColor: '#ef5350' },
-                    { label: 'Trench', data: dat.map(d => toPct(d['Trench %'] || d['Trench'] || 0)), backgroundColor: '#ab47bc' }
-                ]}, options: { ...opt, indexAxis: 'y', scales: { x: { max:100, ticks:{color:'#fff', font:{size:9}} }, y: { ticks:{color:'#fff', font:{size:10}} } } }
+                    { label: 'Bump', data: dat.map(d => toPct(d['Bump %'] || 0)), backgroundColor: '#ef5350' },
+                    { label: 'Trench', data: dat.map(d => toPct(d['Trench %'] || 0)), backgroundColor: '#ab47bc' }
+                ]}, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { max: 100, ticks: {color: '#fff'}}, y: { ticks: {color: '#fff'}}} }
             });
             charts.rN = nav('redNavChart', rLabs, rD);
             charts.bN = nav('blueNavChart', bLabs, bD);
@@ -423,32 +409,17 @@
         function renderStatsGrids(red, blue, getT, getRank) {
             const getCitrusShade = (v) => v <= 1.4 ? "#1b5e20" : v <= 2.2 ? "#4caf50" : "#a5d6a7";
             const getDeathShade = (v) => v === 0 ? "#4caf50" : v === 1 ? "#ff9800" : v === 2 ? "#e53935" : "#b71c1c";
-
             const drawBadges = (list, citrusId, deathsId) => {
                 const cEl = document.getElementById(citrusId); cEl.innerHTML = '';
                 const dEl = document.getElementById(deathsId); dEl.innerHTML = '';
-                
                 list.forEach(n => {
-                    const t = getT(n); 
-                    const rankData = getRank(n);
-                    
-                    const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
-                    cEl.innerHTML += `<div class="citrus-badge" style="background:${getCitrusShade(rnk)}">
-                        <div style="font-size: 1.15em; color: var(--gold); margin-bottom: 2px;">T-${n}</div>
-                        <div>Rnk: ${rankData.rank} | ${rankData.rp} RP</div>
-                        <div style="margin-top: 2px;">Citrus: ${rnk}</div>
-                    </div>`;
-
+                    const t = getT(n); const rankData = getRank(n); const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
+                    cEl.innerHTML += `<div class="citrus-badge" style="background:${getCitrusShade(rnk)}"><div style="color:var(--gold);">T-${n}</div><div>Rnk: ${rankData.rank}</div><div>Citrus: ${rnk}</div></div>`;
                     const deaths = parseInt(t["Total Times Died"]) || 0;
-                    dEl.innerHTML += `<div class="death-badge" style="background:${getDeathShade(deaths)}">
-                        <span style="font-size: 0.6em; text-transform: uppercase;">Died</span>
-                        <span style="font-size: 1.3em;">${deaths}</span>
-                    </div>`;
+                    dEl.innerHTML += `<div class="death-badge" style="background:${getDeathShade(deaths)}"><span>Died</span><span>${deaths}</span></div>`;
                 });
             };
-
-            drawBadges(red, 'red-citrus', 'red-deaths'); 
-            drawBadges(blue, 'blue-citrus', 'blue-deaths');
+            drawBadges(red, 'red-citrus', 'red-deaths'); drawBadges(blue, 'blue-citrus', 'blue-deaths');
         }
 
         function dismissWarning() {
