@@ -89,7 +89,7 @@
         let teamDataCache = [];
         let scheduleData = [];
         let dismissedMatch = -1;
-        let userManuallySelected = false; // Prevents the auto-sync from fighting the user
+        let userManuallySelected = false;
 
         async function fetchData() {
             try {
@@ -113,16 +113,23 @@
         }
 
         function processLiveSchedule(data) {
-            const currentFieldMatchNum = Number(data[0]['Current Match Number']) || 0;
-            document.getElementById('field-match').innerText = currentFieldMatchNum;
+            // GLOBALLY calculate match numbers from the first row of data (Row 2 in Sheets)
+            const currentFieldMatchNum = Number(data[0]['Current Match Number']);
+            const matchesAway = Number(data[0]['Matches Until 3824']);
+            const nextMatchNum = currentFieldMatchNum + matchesAway;
 
+            // Update the live banner using the global calculations
+            document.getElementById('field-match').innerText = isNaN(currentFieldMatchNum) ? "--" : currentFieldMatchNum;
+            document.getElementById('target-match').innerText = isNaN(nextMatchNum) ? "--" : nextMatchNum;
+            document.getElementById('matches-away').innerText = isNaN(matchesAway) ? "--" : matchesAway;
+
+            // Map the rest of the schedule exactly as before
             scheduleData = data.map(row => {
                 const parseAlliance = (str) => {
                     if (!str) return [0,0,0];
                     return str.toString().split(',').map(t => Number(t.trim()));
                 };
                 
-                // Clean up "2026lake_qm59" -> "59"
                 const rawId = row['Match ID'] ? row['Match ID'].toString() : "";
                 const cleanId = rawId.includes('_qm') ? rawId.split('_qm')[1] : rawId;
 
@@ -132,8 +139,7 @@
                     redTeams: parseAlliance(row['Red Alliance']),
                     blueTeams: parseAlliance(row['Blue Alliance']),
                     redEPA: Number(row['Red EPA']),
-                    blueEPA: Number(row['Blue EPA']),
-                    away: Number(row['Matches Until 3824'])
+                    blueEPA: Number(row['Blue EPA'])
                 };
             }).filter(m => m.id);
 
@@ -151,28 +157,24 @@
                 selector.appendChild(opt);
             });
 
-            // FIND THE NEXT 3824 MATCH (Match Number >= Current Field Match)
-            const ourMatches = scheduleData.filter(m => [...m.redTeams, ...m.blueTeams].includes(TEAM_NUMBER));
-            const nextOurMatch = ourMatches.find(m => m.id >= currentFieldMatchNum);
-
-            if (nextOurMatch) {
-                // If we haven't manually touched the dropdown, or if it's the first load, force to next 3824 match
-                if (!userManuallySelected || !previousVal) {
-                    selector.value = nextOurMatch.id;
+            // Set Default Selection to our calculated Next Match
+            if (!userManuallySelected || !previousVal) {
+                // Try to find the exact match we calculated, otherwise fall back to the nearest upcoming match
+                const defaultMatch = scheduleData.find(m => m.id === nextMatchNum) || scheduleData.find(m => m.id >= currentFieldMatchNum) || scheduleData[0];
+                if (defaultMatch) {
+                    selector.value = defaultMatch.id;
                 }
+            }
 
-                document.getElementById('target-match').innerText = nextOurMatch.id;
-                document.getElementById('matches-away').innerText = nextOurMatch.away;
-
-                const banner = document.getElementById('live-banner');
-                const btn = document.getElementById('dismiss-btn');
-                if (nextOurMatch.away <= 2 && dismissedMatch !== nextOurMatch.id) {
-                    banner.classList.add('queueing');
-                    btn.style.display = "block";
-                } else {
-                    banner.classList.remove('queueing');
-                    btn.style.display = "none";
-                }
+            // Banner flashing logic
+            const banner = document.getElementById('live-banner');
+            const btn = document.getElementById('dismiss-btn');
+            if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== nextMatchNum) {
+                banner.classList.add('queueing');
+                btn.style.display = "block";
+            } else {
+                banner.classList.remove('queueing');
+                btn.style.display = "none";
             }
         }
 
@@ -186,7 +188,6 @@
             const match = scheduleData.find(m => m.id == selectedId);
             if (!match || !teamDataCache.length) return;
 
-            // DATA SCRUBBING: Force match between Schedule and Averages
             const getT = (num) => {
                 const team = teamDataCache.find(t => {
                     const cacheNum = Number(t['Team Number'] || t['team_number'] || t['Team']);
@@ -211,7 +212,6 @@
             renderBadges(match.redTeams, match.blueTeams, getT);
         }
 
-        // PERCENTAGE HELPER: Handles 0.75 vs 75 correctly
         const toPct = (v) => {
             let val = parseFloat(v) || 0;
             return (val <= 1.1) ? (val * 100).toFixed(0) : val.toFixed(0);
@@ -260,7 +260,7 @@
             const draw = (list, id) => {
                 const el = document.getElementById(id); el.innerHTML = '';
                 list.forEach(n => {
-                    const t = getT(n); // Use the scrubbed lookup
+                    const t = getT(n); 
                     const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
                     el.innerHTML += `<div class="citrus-badge" style="background:${getShade(rnk)}">T-${n}<br>${rnk}</div>`;
                 });
@@ -269,7 +269,7 @@
         }
 
         function dismissWarning() {
-            dismissedMatch = Number(document.getElementById('match-selector').value);
+            dismissedMatch = Number(document.getElementById('target-match').innerText);
             document.getElementById('live-banner').classList.remove('queueing');
             document.getElementById('dismiss-btn').style.display = "none";
         }
