@@ -80,6 +80,7 @@
     </div>
 
     <script>
+        // --- CONFIGURATION ---
         const TEAM_NUMBER = 3824;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
@@ -88,61 +89,81 @@
         let teamDataCache = [];
         let scheduleData = [];
         let dismissedMatch = -1;
-        let userManuallySelected = false;
+        let userManuallySelected = false; // Prevents the auto-sync from fighting the user
 
         async function fetchData() {
             try {
                 const avgRes = await fetch(AVERAGES_URL);
-                teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const avgText = await avgRes.text();
+                teamDataCache = Papa.parse(avgText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
 
                 const liveRes = await fetch(LIVE_EXPORT_URL);
-                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const liveText = await liveRes.text();
+                const liveData = Papa.parse(liveText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
 
                 if (liveData.length > 0) {
                     processLiveSchedule(liveData);
                     document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
                     updateDashboard();
                 }
-            } catch (e) { console.error("Fetch Error:", e); }
+            } catch (e) {
+                document.getElementById('status-text').innerText = "Sync Error!";
+                console.error("Fetch Error:", e);
+            }
         }
 
         function processLiveSchedule(data) {
-            const currentFieldNum = Number(data[0]['Current Match Number']) || 0;
-            document.getElementById('field-match').innerText = currentFieldNum;
+            const currentFieldMatchNum = Number(data[0]['Current Match Number']) || 0;
+            document.getElementById('field-match').innerText = currentFieldMatchNum;
 
             scheduleData = data.map(row => {
-                const parseAlliance = (str) => String(str || "").split(',').map(t => Number(t.trim()));
+                const parseAlliance = (str) => {
+                    if (!str) return [0,0,0];
+                    return str.toString().split(',').map(t => Number(t.trim()));
+                };
+                
+                // Clean up "2026lake_qm59" -> "59"
                 const rawId = row['Match ID'] ? row['Match ID'].toString() : "";
-                const cleanId = rawId.includes('_qm') ? Number(rawId.split('_qm')[1]) : Number(rawId);
+                const cleanId = rawId.includes('_qm') ? rawId.split('_qm')[1] : rawId;
 
                 return {
-                    id: cleanId,
+                    id: Number(cleanId), 
+                    rawId: rawId,
                     redTeams: parseAlliance(row['Red Alliance']),
                     blueTeams: parseAlliance(row['Blue Alliance']),
-                    redEPA: Number(row['Red EPA'] || 0),
-                    blueEPA: Number(row['Blue EPA'] || 0),
-                    away: Number(row['Matches Until 3824'] || 0)
+                    redEPA: Number(row['Red EPA']),
+                    blueEPA: Number(row['Blue EPA']),
+                    away: Number(row['Matches Until 3824'])
                 };
             }).filter(m => m.id);
 
             const selector = document.getElementById('match-selector');
             const previousVal = selector.value;
             selector.innerHTML = '';
-            scheduleData.sort((a,b) => a.id - b.id).forEach(m => {
+            
+            // Sort schedule numerically
+            scheduleData.sort((a,b) => a.id - b.id);
+
+            scheduleData.forEach(m => {
                 const opt = document.createElement('option');
-                opt.value = m.id; opt.innerText = `Match ${m.id}`;
+                opt.value = m.id;
+                opt.innerText = `Match ${m.id}`;
                 selector.appendChild(opt);
             });
 
-            // Target Match Logic: Lock onto the first 3824 match that is NOT finished
+            // FIND THE NEXT 3824 MATCH (Match Number >= Current Field Match)
             const ourMatches = scheduleData.filter(m => [...m.redTeams, ...m.blueTeams].includes(TEAM_NUMBER));
-            const nextOurMatch = ourMatches.find(m => m.id >= currentFieldNum) || ourMatches[0];
+            const nextOurMatch = ourMatches.find(m => m.id >= currentFieldMatchNum);
 
             if (nextOurMatch) {
-                if (!userManuallySelected || !previousVal) selector.value = nextOurMatch.id;
+                // If we haven't manually touched the dropdown, or if it's the first load, force to next 3824 match
+                if (!userManuallySelected || !previousVal) {
+                    selector.value = nextOurMatch.id;
+                }
+
                 document.getElementById('target-match').innerText = nextOurMatch.id;
                 document.getElementById('matches-away').innerText = nextOurMatch.away;
-                
+
                 const banner = document.getElementById('live-banner');
                 const btn = document.getElementById('dismiss-btn');
                 if (nextOurMatch.away <= 2 && dismissedMatch !== nextOurMatch.id) {
@@ -155,21 +176,31 @@
             }
         }
 
-        function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
+        function handleManualSelection() {
+            userManuallySelected = true;
+            updateDashboard();
+        }
 
         function updateDashboard() {
             const selectedId = document.getElementById('match-selector').value;
             const match = scheduleData.find(m => m.id == selectedId);
-            if (!match) return;
+            if (!match || !teamDataCache.length) return;
 
-            const getT = (num) => teamDataCache.find(t => Number(t['Team Number'] || t['team_number'] || t['Team']) === Number(num)) || 
-                                {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
+            // DATA SCRUBBING: Force match between Schedule and Averages
+            const getT = (num) => {
+                const team = teamDataCache.find(t => {
+                    const cacheNum = Number(t['Team Number'] || t['team_number'] || t['Team']);
+                    return cacheNum === Number(num);
+                });
+                return team || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
+            };
             
             const rD = match.redTeams.map(getT);
             const bD = match.blueTeams.map(getT);
 
-            document.getElementById('red-epa-val').innerText = match.redEPA.toFixed(1);
-            document.getElementById('blue-epa-val').innerText = match.blueEPA.toFixed(1);
+            document.getElementById('red-epa-val').innerText = (match.redEPA || 0).toFixed(1);
+            document.getElementById('blue-epa-val').innerText = (match.blueEPA || 0).toFixed(1);
+            
             const rProb = Math.round((1 / (1 + Math.pow(10, (-(match.redEPA - match.blueEPA) / 65)))) * 100);
             document.getElementById('red-fill').style.width = rProb + "%";
             document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
@@ -180,12 +211,21 @@
             renderBadges(match.redTeams, match.blueTeams, getT);
         }
 
-        const toPct = (v) => { let val = parseFloat(v) || 0; return (val <= 1.1) ? (val * 100).toFixed(0) : val.toFixed(0); };
+        // PERCENTAGE HELPER: Handles 0.75 vs 75 correctly
+        const toPct = (v) => {
+            let val = parseFloat(v) || 0;
+            return (val <= 1.1) ? (val * 100).toFixed(0) : val.toFixed(0);
+        };
 
         function renderCharts(rLabs, bLabs, rD, bD) {
             Object.values(charts).forEach(c => c.destroy());
             const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
-            const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, y: { stacked: true, ticks: {color: '#fff', font: {size: 10}} } } };
+            const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
+                scales: { 
+                    x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, 
+                    y: { stacked: true, ticks: {color: '#fff', font: {size: 10}} } 
+                } 
+            };
 
             charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
                 type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
@@ -220,7 +260,7 @@
             const draw = (list, id) => {
                 const el = document.getElementById(id); el.innerHTML = '';
                 list.forEach(n => {
-                    const t = getT(n);
+                    const t = getT(n); // Use the scrubbed lookup
                     const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
                     el.innerHTML += `<div class="citrus-badge" style="background:${getShade(rnk)}">T-${n}<br>${rnk}</div>`;
                 });
@@ -234,6 +274,7 @@
             document.getElementById('dismiss-btn').style.display = "none";
         }
 
+        // Initial Call
         fetchData();
         setInterval(fetchData, 30000);
     </script>
