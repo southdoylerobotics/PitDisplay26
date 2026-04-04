@@ -249,6 +249,11 @@
             updateDashboard();
         }
 
+        // Shared helper function to calculate the "Total" score just like the table does
+        function getTeamTotalPoints(d) {
+            return parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0));
+        }
+
         function updateDashboard() {
             const selectedId = document.getElementById('match-selector').value;
             const match = scheduleData.find(m => m.id == selectedId);
@@ -290,6 +295,15 @@
             document.getElementById('red-prob-text').innerText = rProb + "%";
             document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
+            // Safely calculate the estimated total score using the exact table logic
+            const rTotalScore = rD.reduce((acc, t) => acc + getTeamTotalPoints(t), 0);
+            const bTotalScore = bD.reduce((acc, t) => acc + getTeamTotalPoints(t), 0);
+            
+            const rPotEl = document.getElementById('red-total-potential');
+            const bPotEl = document.getElementById('blue-total-potential');
+            if (rPotEl) rPotEl.innerText = rTotalScore.toFixed(1);
+            if (bPotEl) bPotEl.innerText = bTotalScore.toFixed(1);
+
             renderTables(match.redTeams, match.blueTeams, rD, bD);
             renderCharts(match.redTeams, match.blueTeams, rD, bD);
             renderStatsGrids(match.redTeams, match.blueTeams, getT, getRank);
@@ -299,14 +313,11 @@
         function renderTables(rLabs, bLabs, rD, bD) {
             const allTeams = [...rD, ...bD];
             
-            // Helper to get Total Points
-            const getTot = (d) => parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0));
-
             // Find the maximum value in this match for each category
             const maxA = Math.max(...allTeams.map(d => parseFloat(d['Avg Auto']) || 0), 0.1);
             const maxT = Math.max(...allTeams.map(d => parseFloat(d['Avg Teleop']) || 0), 0.1);
             const maxE = Math.max(...allTeams.map(d => parseFloat(d['Avg Endgame']) || 0), 0.1);
-            const maxTot = Math.max(...allTeams.map(d => getTot(d)), 0.1);
+            const maxTot = Math.max(...allTeams.map(d => getTeamTotalPoints(d)), 0.1);
 
             // 3-Tier Discrete Color logic matching Citrus Rank style
             const getBg = (val, max, type) => {
@@ -326,7 +337,7 @@
                     const a = parseFloat(d['Avg Auto']) || 0;
                     const t = parseFloat(d['Avg Teleop']) || 0;
                     const e = parseFloat(d['Avg Endgame']) || 0;
-                    const tot = getTot(d);
+                    const tot = getTeamTotalPoints(d);
 
                     html += `<tr>
                         <td style="font-weight:bold; color: var(--gold);">${team}</td>
@@ -355,14 +366,6 @@
 
             const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
             
-            // Calculate Alliance Totals
-            const rTotal = sum(rD, 'Avg Auto') + sum(rD, 'Avg Teleop') + sum(rD, 'Avg Endgame');
-            const bTotal = sum(bD, 'Avg Auto') + sum(bD, 'Avg Teleop') + sum(bD, 'Avg Endgame');
-
-            // Inject Totals into the DOM
-            document.getElementById('red-total-potential').innerText = rTotal.toFixed(1);
-            document.getElementById('blue-total-potential').innerText = bTotal.toFixed(1);
-
             const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
                 scales: { 
                     x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, 
@@ -403,4 +406,30 @@
                     const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
                     cEl.innerHTML += `<div class="citrus-badge" style="background:${getCitrusShade(rnk)}">
                         <div style="font-size: 1.15em; color: var(--gold); margin-bottom: 2px;">T-${n}</div>
-                        <div>Rnk: ${rankData.rank}
+                        <div>Rnk: ${rankData.rank} | ${rankData.rp} RP</div>
+                        <div style="margin-top: 2px;">Citrus: ${rnk}</div>
+                    </div>`;
+
+                    const deaths = parseInt(t["Total Times Died"]) || 0;
+                    dEl.innerHTML += `<div class="death-badge" style="background:${getDeathShade(deaths)}">
+                        <span style="font-size: 0.6em; text-transform: uppercase;">Died</span>
+                        <span style="font-size: 1.3em;">${deaths}</span>
+                    </div>`;
+                });
+            };
+
+            drawBadges(red, 'red-citrus', 'red-deaths'); 
+            drawBadges(blue, 'blue-citrus', 'blue-deaths');
+        }
+
+        function dismissWarning() {
+            dismissedMatch = Number(document.getElementById('target-match').innerText);
+            document.getElementById('live-banner').classList.remove('queueing');
+            document.getElementById('dismiss-btn').style.display = "none";
+        }
+
+        fetchData();
+        setInterval(fetchData, 30000);
+    </script>
+</body>
+</html>
