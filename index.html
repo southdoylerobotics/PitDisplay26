@@ -35,9 +35,17 @@
         .blue-card { border-left: 4px solid var(--blue-alliance); }
         h3 { flex: none; margin: 0 0 6px 0; font-size: 0.85rem; text-transform: uppercase; }
         .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
+        
         .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
         .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
         
+        /* DATA TABLES FOR BREAKDOWNS */
+        .table-container { flex: 1 1 0; display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; height: 100%; }
+        .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; color: #ccc; font-size: 0.8em; text-transform: uppercase; }
+        .data-table td { padding: 4px; border-bottom: 1px solid #333; transition: background 0.5s; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
+        .data-table tr:last-child td { border-bottom: none; }
+
         /* GRIDS FOR STATS */
         .badge-grid { flex: 0 0 115px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
         .death-grid { flex: 0 0 50px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
@@ -77,8 +85,26 @@
 
         <div class="content-grid">
             <div class="card combined-card"><h3>Alliance Combined Potential</h3><div class="chart-container"><canvas id="combinedScoringChart"></canvas></div></div>
-            <div class="card red-card"><h3 class="red-text">Red Breakdown</h3><div class="chart-container"><canvas id="redBreakdownChart"></canvas></div></div>
-            <div class="card blue-card"><h3 class="blue-text">Blue Breakdown</h3><div class="chart-container"><canvas id="blueBreakdownChart"></canvas></div></div>
+            
+            <div class="card red-card">
+                <h3 class="red-text">Red Breakdown</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead>
+                        <tbody id="red-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card blue-card">
+                <h3 class="blue-text">Blue Breakdown</h3>
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead>
+                        <tbody id="blue-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
             
             <div class="card red-card">
                 <h3 class="red-text">Red Nav, Reliability & Rank</h3>
@@ -240,8 +266,53 @@
             document.getElementById('red-prob-text').innerText = rProb + "%";
             document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
+            renderTables(match.redTeams, match.blueTeams, rD, bD);
             renderCharts(match.redTeams, match.blueTeams, rD, bD);
             renderStatsGrids(match.redTeams, match.blueTeams, getT, getRank);
+        }
+
+        // Calculates Total and builds the heatmap tables
+        function renderTables(rLabs, bLabs, rD, bD) {
+            const allTeams = [...rD, ...bD];
+            
+            // Helper to get Total Points (uses the column if available, otherwise sums the 3 parts)
+            const getTot = (d) => parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0));
+
+            // Find the maximum value in this match for each category to scale the heatmap colors
+            const maxA = Math.max(...allTeams.map(d => parseFloat(d['Avg Auto']) || 0), 0.1);
+            const maxT = Math.max(...allTeams.map(d => parseFloat(d['Avg Teleop']) || 0), 0.1);
+            const maxE = Math.max(...allTeams.map(d => parseFloat(d['Avg Endgame']) || 0), 0.1);
+            const maxTot = Math.max(...allTeams.map(d => getTot(d)), 0.1);
+
+            const getBg = (val, max, type) => {
+                if (!val || val === 0) return 'transparent';
+                // Calculate intensity (0.15 to 0.85 opacity based on relation to the max score)
+                const intensity = 0.15 + (0.7 * (val / max)); 
+                return type === 'red' ? `rgba(220, 20, 40, ${intensity})` : `rgba(30, 100, 255, ${intensity})`;
+            };
+
+            const buildRows = (labs, dat, type) => {
+                let html = '';
+                labs.forEach((team, i) => {
+                    const d = dat[i];
+                    const a = parseFloat(d['Avg Auto']) || 0;
+                    const t = parseFloat(d['Avg Teleop']) || 0;
+                    const e = parseFloat(d['Avg Endgame']) || 0;
+                    const tot = getTot(d);
+
+                    html += `<tr>
+                        <td style="font-weight:bold; color: var(--gold);">${team}</td>
+                        <td style="background:${getBg(a, maxA, type)}">${a.toFixed(1)}</td>
+                        <td style="background:${getBg(t, maxT, type)}">${t.toFixed(1)}</td>
+                        <td style="background:${getBg(e, maxE, type)}">${e.toFixed(1)}</td>
+                        <td style="background:${getBg(tot, maxTot, type)}; font-weight:bold;">${tot.toFixed(1)}</td>
+                    </tr>`;
+                });
+                return html;
+            };
+
+            document.getElementById('red-table-body').innerHTML = buildRows(rLabs, rD, 'red');
+            document.getElementById('blue-table-body').innerHTML = buildRows(bLabs, bD, 'blue');
         }
 
         const toPct = (v) => {
@@ -250,7 +321,11 @@
         };
 
         function renderCharts(rLabs, bLabs, rD, bD) {
-            Object.values(charts).forEach(c => c.destroy());
+            // Only destroy existing charts, not the newly removed bar breakdowns
+            if(charts.comb) charts.comb.destroy();
+            if(charts.rN) charts.rN.destroy();
+            if(charts.bN) charts.bN.destroy();
+
             const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
             const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, 
                 scales: { 
@@ -267,16 +342,6 @@
                 ]}, options: { ...opt, plugins: { legend: { display: true, position: 'bottom', labels: {color: '#fff', boxWidth: 10}} } }
             });
 
-            const breakdown = (id, labs, dat) => new Chart(document.getElementById(id), {
-                type: 'bar', data: { labels: labs, datasets: [
-                    { label: 'Auto', data: dat.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
-                    { label: 'Teleop', data: dat.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
-                    { label: 'End', data: dat.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' }
-                ]}, options: opt
-            });
-            charts.rB = breakdown('redBreakdownChart', rLabs, rD);
-            charts.bB = breakdown('blueBreakdownChart', bLabs, bD);
-
             const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
                 type: 'bar', data: { labels: labs, datasets: [
                     { label: 'Bump', data: dat.map(d => toPct(d['Bump %'] || d['Bump'] || 0)), backgroundColor: '#ef5350' },
@@ -289,8 +354,6 @@
 
         function renderStatsGrids(red, blue, getT, getRank) {
             const getCitrusShade = (v) => v <= 1.4 ? "#1b5e20" : v <= 2.2 ? "#4caf50" : "#a5d6a7";
-            
-            // 0 = Green, 1 = Orange/Yellow, 2 = Red, 3+ = Dark Red
             const getDeathShade = (v) => v === 0 ? "#4caf50" : v === 1 ? "#ff9800" : v === 2 ? "#e53935" : "#b71c1c";
 
             const drawBadges = (list, citrusId, deathsId) => {
@@ -301,7 +364,6 @@
                     const t = getT(n); 
                     const rankData = getRank(n);
                     
-                    // Render Rank/Citrus
                     const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
                     cEl.innerHTML += `<div class="citrus-badge" style="background:${getCitrusShade(rnk)}">
                         <div style="font-size: 1.15em; color: var(--gold); margin-bottom: 2px;">T-${n}</div>
@@ -309,7 +371,6 @@
                         <div style="margin-top: 2px;">Citrus: ${rnk}</div>
                     </div>`;
 
-                    // Render Deaths
                     const deaths = parseInt(t["Total Times Died"]) || 0;
                     dEl.innerHTML += `<div class="death-badge" style="background:${getDeathShade(deaths)}">
                         <span style="font-size: 0.6em; text-transform: uppercase;">Died</span>
@@ -328,7 +389,6 @@
             document.getElementById('dismiss-btn').style.display = "none";
         }
 
-        // Initial Call
         fetchData();
         setInterval(fetchData, 30000);
     </script>
