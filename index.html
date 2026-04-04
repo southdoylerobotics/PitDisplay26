@@ -64,10 +64,10 @@
             <div>
                 <span>Field Match: <span id="field-match" style="color:var(--gold);">--</span></span>
                 <span style="margin: 0 10px; color: #444;">|</span>
-                <span>Next 3824: <span id="target-match" style="color:var(--gold);">--</span></span>
+                <span>Next 3824 Match: <span id="target-match" style="color:var(--gold);">--</span></span>
             </div>
             <div>MATCHES AWAY: <span id="matches-away">--</span></div>
-            <button id="dismiss-btn" style="display:none; padding:5px 10px; font-weight:bold;" onclick="dismissWarning()">ON OUR WAY!</button>
+            <button id="dismiss-btn" style="display:none; padding:5px 10px; font-weight:bold; cursor:pointer;" onclick="dismissWarning()">ON OUR WAY!</button>
         </div>
 
         <div class="content-grid">
@@ -80,10 +80,11 @@
     </div>
 
     <script>
-        // --- CONFIGURATION ---
+        // --- 1. THREE GOOGLE SHEET LINKS ---
         const TEAM_NUMBER = 3824;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
+        const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
 
         let charts = {};
         let teamDataCache = [];
@@ -93,16 +94,20 @@
 
         async function fetchData() {
             try {
-                const avgRes = await fetch(AVERAGES_URL);
-                const avgText = await avgRes.text();
-                teamDataCache = Papa.parse(avgText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                // Fetch all 3 sheets simultaneously for speed
+                const [avgRes, liveRes, tbaRes] = await Promise.all([
+                    fetch(AVERAGES_URL),
+                    fetch(LIVE_EXPORT_URL),
+                    fetch(TBA_MATCHES_URL)
+                ]);
 
-                const liveRes = await fetch(LIVE_EXPORT_URL);
-                const liveText = await liveRes.text();
-                const liveData = Papa.parse(liveText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                // Parse the CSVs
+                teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
 
-                if (liveData.length > 0) {
-                    processLiveSchedule(liveData);
+                if (liveData.length > 0 && tbaData.length > 0) {
+                    processLiveSchedule(liveData, tbaData);
                     document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
                     updateDashboard();
                 }
@@ -112,64 +117,54 @@
             }
         }
 
-        function processLiveSchedule(data) {
-            // GLOBALLY calculate match numbers from the first row of data (Row 2 in Sheets)
-            const currentFieldMatchNum = Number(data[0]['Current Match Number']);
-            const matchesAway = Number(data[0]['Matches Until 3824']);
-            const nextMatchNum = currentFieldMatchNum + matchesAway;
+        function processLiveSchedule(liveData, tbaData) {
+            // 1. Calculate the Math from Live_Export (Row 2)
+            const currentFieldMatchNum = Number(liveData[0]['Current Match Number']) || 0;
+            const matchesAway = Number(liveData[0]['Matches Until 3824']) || 0;
+            const targetMatchNum = currentFieldMatchNum + matchesAway; // e.g., 53 + 6 = 59
 
-            // Update the live banner using the global calculations
-            document.getElementById('field-match').innerText = isNaN(currentFieldMatchNum) ? "--" : currentFieldMatchNum;
-            document.getElementById('target-match').innerText = isNaN(nextMatchNum) ? "--" : nextMatchNum;
-            document.getElementById('matches-away').innerText = isNaN(matchesAway) ? "--" : matchesAway;
+            document.getElementById('field-match').innerText = currentFieldMatchNum;
+            document.getElementById('target-match').innerText = targetMatchNum;
+            document.getElementById('matches-away').innerText = matchesAway;
 
-            // Map the rest of the schedule exactly as before
-            scheduleData = data.map(row => {
-                const parseAlliance = (str) => {
-                    if (!str) return [0,0,0];
-                    return str.toString().split(',').map(t => Number(t.trim()));
-                };
-                
-                const rawId = row['Match ID'] ? row['Match ID'].toString() : "";
-                const cleanId = rawId.includes('_qm') ? rawId.split('_qm')[1] : rawId;
+            // 2. Build the Schedule from TBA_Matches
+            scheduleData = tbaData
+                .filter(row => String(row['Comp Level'] || '').toLowerCase() === 'qm') // Only grab Qual Matches
+                .map(row => {
+                    // Strips 'frc' if TBA exported it that way (e.g., 'frc3824' -> 3824)
+                    const getTeam = (col) => Number(String(row[col] || '').replace('frc', '').trim());
 
-                return {
-                    id: Number(cleanId), 
-                    rawId: rawId,
-                    redTeams: parseAlliance(row['Red Alliance']),
-                    blueTeams: parseAlliance(row['Blue Alliance']),
-                    redEPA: Number(row['Red EPA']),
-                    blueEPA: Number(row['Blue EPA'])
-                };
-            }).filter(m => m.id);
+                    return {
+                        id: Number(row['Match Number']),
+                        redTeams: [getTeam('Red 1'), getTeam('Red 2'), getTeam('Red 3')],
+                        blueTeams: [getTeam('Blue 1'), getTeam('Blue 2'), getTeam('Blue 3')]
+                    };
+                }).filter(m => m.id);
 
+            // 3. Populate Dropdown Menu
             const selector = document.getElementById('match-selector');
             const previousVal = selector.value;
             selector.innerHTML = '';
             
-            // Sort schedule numerically
-            scheduleData.sort((a,b) => a.id - b.id);
-
-            scheduleData.forEach(m => {
+            scheduleData.sort((a,b) => a.id - b.id).forEach(m => {
                 const opt = document.createElement('option');
                 opt.value = m.id;
                 opt.innerText = `Match ${m.id}`;
                 selector.appendChild(opt);
             });
 
-            // Set Default Selection to our calculated Next Match
+            // 4. Set Dropdown to Target Match (Match 59)
             if (!userManuallySelected || !previousVal) {
-                // Try to find the exact match we calculated, otherwise fall back to the nearest upcoming match
-                const defaultMatch = scheduleData.find(m => m.id === nextMatchNum) || scheduleData.find(m => m.id >= currentFieldMatchNum) || scheduleData[0];
-                if (defaultMatch) {
-                    selector.value = defaultMatch.id;
+                const calculatedMatch = scheduleData.find(m => m.id === targetMatchNum);
+                if (calculatedMatch) {
+                    selector.value = calculatedMatch.id;
                 }
             }
 
-            // Banner flashing logic
+            // 5. Flash Warning Logic
             const banner = document.getElementById('live-banner');
             const btn = document.getElementById('dismiss-btn');
-            if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== nextMatchNum) {
+            if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetMatchNum) {
                 banner.classList.add('queueing');
                 btn.style.display = "block";
             } else {
@@ -188,6 +183,7 @@
             const match = scheduleData.find(m => m.id == selectedId);
             if (!match || !teamDataCache.length) return;
 
+            // DATA SCRUBBING
             const getT = (num) => {
                 const team = teamDataCache.find(t => {
                     const cacheNum = Number(t['Team Number'] || t['team_number'] || t['Team']);
@@ -199,10 +195,14 @@
             const rD = match.redTeams.map(getT);
             const bD = match.blueTeams.map(getT);
 
-            document.getElementById('red-epa-val').innerText = (match.redEPA || 0).toFixed(1);
-            document.getElementById('blue-epa-val').innerText = (match.blueEPA || 0).toFixed(1);
+            // Calculate EPA mathematically from the specific teams chosen
+            const rEPA = rD.reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+            const bEPA = bD.reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+
+            document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
+            document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
             
-            const rProb = Math.round((1 / (1 + Math.pow(10, (-(match.redEPA - match.blueEPA) / 65)))) * 100);
+            const rProb = Math.round((1 / (1 + Math.pow(10, (-(rEPA - bEPA) / 65)))) * 100);
             document.getElementById('red-fill').style.width = rProb + "%";
             document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
             document.getElementById('red-prob-text').innerText = rProb + "%";
@@ -228,10 +228,10 @@
             };
 
             charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
-                type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
+                type: 'bar', data: { labels: ['Red Alliance', 'Blue Alliance'], datasets: [
                     { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
                     { label: 'Teleop', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
-                    { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
+                    { label: 'Endgame', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
                 ]}, options: { ...opt, plugins: { legend: { display: true, position: 'bottom', labels: {color: '#fff', boxWidth: 10}} } }
             });
 
