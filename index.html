@@ -80,31 +80,35 @@
     </div>
 
     <script>
-        // --- 1. THREE GOOGLE SHEET LINKS ---
+        // --- 1. FOUR GOOGLE SHEET LINKS ---
         const TEAM_NUMBER = 3824;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
         const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
+        const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
 
         let charts = {};
         let teamDataCache = [];
         let scheduleData = [];
+        let epaDataCache = [];
         let dismissedMatch = -1;
         let userManuallySelected = false;
 
         async function fetchData() {
             try {
-                // Fetch all 3 sheets simultaneously for speed
-                const [avgRes, liveRes, tbaRes] = await Promise.all([
+                // Fetch all 4 sheets simultaneously for speed
+                const [avgRes, liveRes, tbaRes, epaRes] = await Promise.all([
                     fetch(AVERAGES_URL),
                     fetch(LIVE_EXPORT_URL),
-                    fetch(TBA_MATCHES_URL)
+                    fetch(TBA_MATCHES_URL),
+                    fetch(STATBOTICS_URL)
                 ]);
 
                 // Parse the CSVs
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                epaDataCache = Papa.parse(await epaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
 
                 if (liveData.length > 0 && tbaData.length > 0) {
                     processLiveSchedule(liveData, tbaData);
@@ -118,20 +122,19 @@
         }
 
         function processLiveSchedule(liveData, tbaData) {
-            // 1. Calculate the Math from Live_Export (Row 2)
+            // Calculate Math from Live_Export (Row 2)
             const currentFieldMatchNum = Number(liveData[0]['Current Match Number']) || 0;
             const matchesAway = Number(liveData[0]['Matches Until 3824']) || 0;
-            const targetMatchNum = currentFieldMatchNum + matchesAway; // e.g., 53 + 6 = 59
+            const targetMatchNum = currentFieldMatchNum + matchesAway;
 
             document.getElementById('field-match').innerText = currentFieldMatchNum;
             document.getElementById('target-match').innerText = targetMatchNum;
             document.getElementById('matches-away').innerText = matchesAway;
 
-            // 2. Build the Schedule from TBA_Matches
+            // Build the Schedule from TBA_Matches
             scheduleData = tbaData
-                .filter(row => String(row['Comp Level'] || '').toLowerCase() === 'qm') // Only grab Qual Matches
+                .filter(row => String(row['Comp Level'] || '').toLowerCase() === 'qm') 
                 .map(row => {
-                    // Strips 'frc' if TBA exported it that way (e.g., 'frc3824' -> 3824)
                     const getTeam = (col) => Number(String(row[col] || '').replace('frc', '').trim());
 
                     return {
@@ -141,7 +144,7 @@
                     };
                 }).filter(m => m.id);
 
-            // 3. Populate Dropdown Menu
+            // Populate Dropdown Menu
             const selector = document.getElementById('match-selector');
             const previousVal = selector.value;
             selector.innerHTML = '';
@@ -153,7 +156,7 @@
                 selector.appendChild(opt);
             });
 
-            // 4. Set Dropdown to Target Match (Match 59)
+            // Set Dropdown to Target Match
             if (!userManuallySelected || !previousVal) {
                 const calculatedMatch = scheduleData.find(m => m.id === targetMatchNum);
                 if (calculatedMatch) {
@@ -161,7 +164,7 @@
                 }
             }
 
-            // 5. Flash Warning Logic
+            // Flash Warning Logic
             const banner = document.getElementById('live-banner');
             const btn = document.getElementById('dismiss-btn');
             if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetMatchNum) {
@@ -183,7 +186,7 @@
             const match = scheduleData.find(m => m.id == selectedId);
             if (!match || !teamDataCache.length) return;
 
-            // DATA SCRUBBING
+            // Chart Data Lookups
             const getT = (num) => {
                 const team = teamDataCache.find(t => {
                     const cacheNum = Number(t['Team Number'] || t['team_number'] || t['Team']);
@@ -195,13 +198,19 @@
             const rD = match.redTeams.map(getT);
             const bD = match.blueTeams.map(getT);
 
-            // Calculate EPA mathematically from the specific teams chosen
-            const rEPA = rD.reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
-            const bEPA = bD.reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+            // EPA Data Lookups (from Statbotics)
+            const getEPA = (num) => {
+                const team = epaDataCache.find(t => Number(t['Team']) === Number(num));
+                return team ? (Number(team['Total EPA']) || 0) : 0;
+            };
+
+            const rEPA = match.redTeams.reduce((sum, t) => sum + getEPA(t), 0);
+            const bEPA = match.blueTeams.reduce((sum, t) => sum + getEPA(t), 0);
 
             document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
             document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
             
+            // Win Probability logic based on EPA
             const rProb = Math.round((1 / (1 + Math.pow(10, (-(rEPA - bEPA) / 65)))) * 100);
             document.getElementById('red-fill').style.width = rProb + "%";
             document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
