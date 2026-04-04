@@ -139,3 +139,44 @@
         const cfg = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff', font: {size: 10}}}}};
 
         charts.s = new Chart(document.getElementById('scoreChart'), {
+            type: 'bar',
+            data: {
+                labels: labs,
+                datasets: [
+                    { label: 'Auto', data: d.map(x => x['Avg Auto']), backgroundColor: '#FFD700' },
+                    { label: 'Teleop', data: d.map(x => x['Avg Teleop']), backgroundColor: '#42a5f5' },
+                    { label: 'End', data: d.map(x => x['Avg Endgame']), backgroundColor: '#66bb6a' }
+                ]
+            },
+            options: { ...cfg, scales: { x:{stacked:true, ticks:{color:'#fff'}}, y:{stacked:true, ticks:{color:'#fff'}}}}
+        });
+
+        charts.n = new Chart(document.getElementById('navChart'), {
+            type: 'bar',
+            data: {
+                labels: labs,
+                datasets: [
+                    { label: 'Bump %', data: d.map(x => parseFloat(x['Bump %'])*100), backgroundColor: '#ef5350' },
+                    { label: 'Trench %', data: d.map(x => parseFloat(x['Trench %'])*100), backgroundColor: '#ab47bc' }
+                ]
+            },
+            options: { ...cfg, indexAxis: 'y', scales: { x:{max:100, ticks:{color:'#fff'}}, y:{ticks:{color:'#fff'}}}}
+        });
+    }
+
+    function badges(r, b, all) {
+        const draw = (list, id) => {
+            const el = document.getElementById(id); el.innerHTML = '';
+            list.forEach(n => {
+                const t = all.find(x => x['Team Number'] == n) || {"Avg Citrus": 1};
+                const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
+                el.innerHTML += `<div class="citrus-badge" style="background:${getGreen(rnk)}">T-${n}<br><small>${rnk}</small></div>`;
+            });
+        };
+        draw(r, 'red-citrus'); draw(b, 'blue-citrus');
+    }
+
+    update(); setInterval(update, 30000);
+</script>
+</body>
+</html>
