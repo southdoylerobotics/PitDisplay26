@@ -37,8 +37,10 @@
         .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
         .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
         .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
-        .badge-grid { flex: 0 0 90px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
-        .citrus-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; font-size: 0.75em; border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px black;}
+        
+        /* Expanded Badge Grid to fit Rank Info */
+        .badge-grid { flex: 0 0 115px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
+        .citrus-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; font-size: 0.70em; border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px black; text-align: center; padding: 2px;}
     </style>
 </head>
 <body>
@@ -74,34 +76,37 @@
             <div class="card combined-card"><h3>Alliance Combined Potential</h3><div class="chart-container"><canvas id="combinedScoringChart"></canvas></div></div>
             <div class="card red-card"><h3 class="red-text">Red Breakdown</h3><div class="chart-container"><canvas id="redBreakdownChart"></canvas></div></div>
             <div class="card blue-card"><h3 class="blue-text">Blue Breakdown</h3><div class="chart-container"><canvas id="blueBreakdownChart"></canvas></div></div>
-            <div class="card red-card"><h3 class="red-text">Red Nav & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="redNavChart"></canvas></div><div id="red-citrus" class="badge-grid"></div></div></div>
-            <div class="card blue-card"><h3 class="blue-text">Blue Nav & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="blueNavChart"></canvas></div><div id="blue-citrus" class="badge-grid"></div></div></div>
+            <div class="card red-card"><h3 class="red-text">Red Nav, Rank & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="redNavChart"></canvas></div><div id="red-citrus" class="badge-grid"></div></div></div>
+            <div class="card blue-card"><h3 class="blue-text">Blue Nav, Rank & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="blueNavChart"></canvas></div><div id="blue-citrus" class="badge-grid"></div></div></div>
         </div>
     </div>
 
     <script>
-        // --- 1. FOUR GOOGLE SHEET LINKS ---
+        // --- 1. FIVE GOOGLE SHEET LINKS ---
         const TEAM_NUMBER = 3824;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
         const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
+        const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
 
         let charts = {};
         let teamDataCache = [];
         let scheduleData = [];
         let epaDataCache = [];
+        let rankingsDataCache = [];
         let dismissedMatch = -1;
         let userManuallySelected = false;
 
         async function fetchData() {
             try {
-                // Fetch all 4 sheets simultaneously for speed
-                const [avgRes, liveRes, tbaRes, epaRes] = await Promise.all([
+                // Fetch all 5 sheets simultaneously
+                const [avgRes, liveRes, tbaRes, epaRes, rankRes] = await Promise.all([
                     fetch(AVERAGES_URL),
                     fetch(LIVE_EXPORT_URL),
                     fetch(TBA_MATCHES_URL),
-                    fetch(STATBOTICS_URL)
+                    fetch(STATBOTICS_URL),
+                    fetch(TBA_RANKINGS_URL)
                 ]);
 
                 // Parse the CSVs
@@ -109,6 +114,7 @@
                 const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 epaDataCache = Papa.parse(await epaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                rankingsDataCache = Papa.parse(await rankRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
 
                 if (liveData.length > 0 && tbaData.length > 0) {
                     processLiveSchedule(liveData, tbaData);
@@ -122,7 +128,6 @@
         }
 
         function processLiveSchedule(liveData, tbaData) {
-            // Calculate Math from Live_Export (Row 2)
             const currentFieldMatchNum = Number(liveData[0]['Current Match Number']) || 0;
             const matchesAway = Number(liveData[0]['Matches Until 3824']) || 0;
             const targetMatchNum = currentFieldMatchNum + matchesAway;
@@ -131,7 +136,6 @@
             document.getElementById('target-match').innerText = targetMatchNum;
             document.getElementById('matches-away').innerText = matchesAway;
 
-            // Build the Schedule from TBA_Matches
             scheduleData = tbaData
                 .filter(row => String(row['Comp Level'] || '').toLowerCase() === 'qm') 
                 .map(row => {
@@ -144,7 +148,6 @@
                     };
                 }).filter(m => m.id);
 
-            // Populate Dropdown Menu
             const selector = document.getElementById('match-selector');
             const previousVal = selector.value;
             selector.innerHTML = '';
@@ -156,7 +159,6 @@
                 selector.appendChild(opt);
             });
 
-            // Set Dropdown to Target Match
             if (!userManuallySelected || !previousVal) {
                 const calculatedMatch = scheduleData.find(m => m.id === targetMatchNum);
                 if (calculatedMatch) {
@@ -164,7 +166,6 @@
                 }
             }
 
-            // Flash Warning Logic
             const banner = document.getElementById('live-banner');
             const btn = document.getElementById('dismiss-btn');
             if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetMatchNum) {
@@ -195,14 +196,23 @@
                 return team || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
             };
             
-            const rD = match.redTeams.map(getT);
-            const bD = match.blueTeams.map(getT);
-
             // EPA Data Lookups (from Statbotics)
             const getEPA = (num) => {
                 const team = epaDataCache.find(t => Number(t['Team']) === Number(num));
                 return team ? (Number(team['Total EPA']) || 0) : 0;
             };
+
+            // TBA Ranking Lookups
+            const getRank = (num) => {
+                const team = rankingsDataCache.find(t => {
+                    const cacheNum = Number(String(t['Team'] || '').replace('frc', '').trim());
+                    return cacheNum === Number(num);
+                });
+                return team ? { rank: team['Rank'], rp: team['Total RP'] } : { rank: '--', rp: '--' };
+            };
+
+            const rD = match.redTeams.map(getT);
+            const bD = match.blueTeams.map(getT);
 
             const rEPA = match.redTeams.reduce((sum, t) => sum + getEPA(t), 0);
             const bEPA = match.blueTeams.reduce((sum, t) => sum + getEPA(t), 0);
@@ -210,7 +220,6 @@
             document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
             document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
             
-            // Win Probability logic based on EPA
             const rProb = Math.round((1 / (1 + Math.pow(10, (-(rEPA - bEPA) / 65)))) * 100);
             document.getElementById('red-fill').style.width = rProb + "%";
             document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
@@ -218,7 +227,7 @@
             document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
             renderCharts(match.redTeams, match.blueTeams, rD, bD);
-            renderBadges(match.redTeams, match.blueTeams, getT);
+            renderBadges(match.redTeams, match.blueTeams, getT, getRank);
         }
 
         const toPct = (v) => {
@@ -264,14 +273,19 @@
             charts.bN = nav('blueNavChart', bLabs, bD);
         }
 
-        function renderBadges(red, blue, getT) {
+        function renderBadges(red, blue, getT, getRank) {
             const getShade = (v) => v <= 1.4 ? "#1b5e20" : v <= 2.2 ? "#4caf50" : "#a5d6a7";
             const draw = (list, id) => {
                 const el = document.getElementById(id); el.innerHTML = '';
                 list.forEach(n => {
                     const t = getT(n); 
+                    const rankData = getRank(n);
                     const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
-                    el.innerHTML += `<div class="citrus-badge" style="background:${getShade(rnk)}">T-${n}<br>${rnk}</div>`;
+                    el.innerHTML += `<div class="citrus-badge" style="background:${getShade(rnk)}">
+                        <div style="font-size: 1.15em; color: var(--gold); margin-bottom: 2px;">T-${n}</div>
+                        <div>Rnk: ${rankData.rank} | ${rankData.rp} RP</div>
+                        <div style="margin-top: 2px;">Citrus: ${rnk}</div>
+                    </div>`;
                 });
             };
             draw(red, 'red-citrus'); draw(blue, 'blue-citrus');
