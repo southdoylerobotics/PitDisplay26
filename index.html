@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3824 Pit Strategy Dashboard</title>
+    <title>3824 Strategy Dashboard - Live Sync</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
@@ -17,7 +17,7 @@
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: 100%; padding: 8px; gap: 8px; }
 
-        /* HEADER & PROBABILITY */
+        /* HEADER */
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .header-controls { display: flex; flex-direction: column; gap: 4px; }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
@@ -31,7 +31,7 @@
         .live-banner.queueing button { display: inline-block; }
         @keyframes flash { 0% { background: #d32f2f; } 50% { background: #ff5252; } 100% { background: #d32f2f; } }
 
-        /* GRID LAYOUT */
+        /* CONTENT GRID */
         .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
         .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .combined-card { grid-column: 1 / -1; } 
@@ -61,8 +61,8 @@
             </div>
             <div class="win-prob-container">
                 <div style="display:flex; justify-content: space-between; font-weight: bold; font-size: 0.8rem;">
-                    <span class="red-text">RED: <span id="red-epa-val">0</span></span>
-                    <span class="blue-text">BLUE: <span id="blue-epa-val">0</span></span>
+                    <span class="red-text">RED EPA: <span id="red-epa-val">0</span></span>
+                    <span class="blue-text">BLUE EPA: <span id="blue-epa-val">0</span></span>
                 </div>
                 <div class="prob-bar">
                     <div id="red-fill" style="width: 50%; background: var(--red-alliance); transition: 1s;"></div>
@@ -78,7 +78,7 @@
             <div>
                 <span>Field Match: <span id="field-match" style="color:var(--gold);">--</span></span>
                 <span style="margin: 0 10px; color: #444;">|</span>
-                <span>Next 3824: <span id="target-match" style="color:var(--gold);">--</span></span>
+                <span>Next 3824 Match ID: <span id="target-match" style="color:var(--gold);">--</span></span>
             </div>
             <div id="queue-status-text">MATCHES AWAY: <span id="matches-away">--</span></div>
             <button onclick="dismissWarning()">ON OUR WAY!</button>
@@ -91,11 +91,11 @@
             </div>
 
             <div class="card red-card">
-                <h3 class="red-text">Red Breakdown</h3>
+                <h3 class="red-text">Red Individual Breakdown</h3>
                 <div class="chart-container"><canvas id="redBreakdownChart"></canvas></div>
             </div>
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Breakdown</h3>
+                <h3 class="blue-text">Blue Individual Breakdown</h3>
                 <div class="chart-container"><canvas id="blueBreakdownChart"></canvas></div>
             </div>
 
@@ -117,124 +117,113 @@
     </div>
 
     <script>
-        // --- 1. CONFIGURATION ---
-        const TEAM_NUMBER = 3824;
+        // --- CONFIGURATION ---
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-        const LIVE_EXPORT_URL = "PASTE_YOUR_LIVE_EXPORT_CSV_URL_HERE"; 
+        const LIVE_EXPORT_URL = "YOUR_LIVE_EXPORT_CSV_LINK_HERE"; 
 
         let charts = {};
         let teamDataCache = [];
-        let fullSchedule = [];
+        let scheduleData = [];
         let dismissedMatch = -1;
 
-        // --- 2. DATA FETCHING ---
         async function fetchData() {
             try {
-                // Fetch Team Stats
+                // Fetch Stats
                 const avgRes = await fetch(AVERAGES_URL);
-                const avgCsv = await avgRes.text();
-                teamDataCache = Papa.parse(avgCsv, { header: true, dynamicTyping: true }).data;
-                
+                const avgData = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true }).data;
+                teamDataCache = avgData;
+
                 // Fetch Live Schedule
                 const liveRes = await fetch(LIVE_EXPORT_URL);
-                const liveCsv = await liveRes.text();
-                const liveData = Papa.parse(liveCsv, { header: true, dynamicTyping: true }).data;
+                const liveData = Papa.parse(liveRes.ok ? await liveRes.text() : "", { header: true, dynamicTyping: true }).data;
 
-                processLiveExport(liveData);
-                document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
-                updateDashboard();
-            } catch (e) { 
-                document.getElementById('status-text').innerText = "Connection Error!";
+                if (liveData.length > 0) {
+                    processLiveSchedule(liveData);
+                    document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+                    updateDashboard();
+                }
+            } catch (e) {
+                document.getElementById('status-text').innerText = "Sync Error!";
                 console.error(e);
             }
         }
 
-        // --- 3. MATCH TRACKING LOGIC ---
-        function processLiveExport(data) {
-            if (!data || data.length === 0) return;
+        function processLiveSchedule(data) {
+            // 1. Update Field Info from provided headers
+            const currentMatch = data[0]['Current Match Number'] || 0;
+            document.getElementById('field-match').innerText = currentMatch;
 
-            // Extract Current Field Match (Assuming it's in a column named "Current Match")
-            const currentFieldMatch = data[0]['Current Match'] || 0;
-            document.getElementById('field-match').innerText = currentFieldMatch;
+            // 2. Parse the schedule
+            scheduleData = data.map(row => {
+                // Handle "Team, Team, Team" strings
+                const splitTeams = (str) => str ? str.toString().split(',').map(t => parseInt(t.trim())) : [0,0,0];
+                return {
+                    id: row['Match ID'],
+                    redTeams: splitTeams(row['Red Alliance']),
+                    blueTeams: splitTeams(row['Blue Alliance']),
+                    redEPA: row['Red EPA'],
+                    blueEPA: row['Blue EPA'],
+                    away: row['Matches Until 3824']
+                };
+            }).filter(m => m.id);
 
-            // Map the entire schedule
-            fullSchedule = data.map(row => ({
-                num: row['Match Number'],
-                red: [row['Red 1'], row['Red 2'], row['Red 3']],
-                blue: [row['Blue 1'], row['Blue 2'], row['Blue 3']]
-            })).filter(m => m.num);
-
-            // Find EVERY match 3824 is in
-            const ourMatches = fullSchedule.filter(m => [...m.red, ...m.blue].includes(TEAM_NUMBER));
-            
-            // Populate Dropdown
+            // 3. Populate Selector
             const selector = document.getElementById('match-selector');
-            const currentSelection = selector.value;
+            const currentVal = selector.value;
             selector.innerHTML = '';
             
-            ourMatches.forEach(m => {
+            scheduleData.forEach(m => {
                 const opt = document.createElement('option');
-                opt.value = m.num;
-                opt.innerText = `Match ${m.num}`;
+                opt.value = m.id;
+                opt.innerText = `Match ${m.id}`;
                 selector.appendChild(opt);
             });
 
-            // Auto-select the next upcoming match for 3824
-            const nextMatch = ourMatches.find(m => m.num >= currentFieldMatch);
+            // 4. Handle Next Match Logic
+            // Find row where "Matches Until 3824" is lowest non-negative number
+            const nextMatch = scheduleData.filter(m => m.away >= 0).sort((a,b) => a.away - b.away)[0];
+            
             if (nextMatch) {
-                if (!currentSelection) selector.value = nextMatch.num;
-                document.getElementById('target-match').innerText = nextMatch.num;
-                
-                const away = nextMatch.num - currentFieldMatch;
-                document.getElementById('matches-away').innerText = away;
+                if (!currentVal) selector.value = nextMatch.id;
+                document.getElementById('target-match').innerText = nextMatch.id;
+                document.getElementById('matches-away').innerText = nextMatch.away;
 
-                // Warning if 2 or fewer matches away
                 const banner = document.getElementById('live-banner');
-                if (away > 0 && away <= 2 && dismissedMatch !== nextMatch.num) {
+                if (nextMatch.away >= 0 && nextMatch.away <= 2 && dismissedMatch !== nextMatch.id) {
                     banner.classList.add('queueing');
-                    document.getElementById('queue-status-text').innerText = `⚠️ QUEUE NOW: ${away} AWAY ⚠️`;
+                    document.getElementById('queue-status-text').innerText = `⚠️ QUEUE WARNING: ${nextMatch.away} AWAY ⚠️`;
                 } else {
                     banner.classList.remove('queueing');
-                    document.getElementById('queue-status-text').innerText = `MATCHES AWAY: ${away}`;
+                    document.getElementById('queue-status-text').innerText = `MATCHES AWAY: ${nextMatch.away}`;
                 }
             }
         }
 
-        function dismissWarning() {
-            const selector = document.getElementById('match-selector');
-            dismissedMatch = parseInt(selector.value);
-            document.getElementById('live-banner').classList.remove('queueing');
-        }
-
-        // --- 4. DASHBOARD RENDERING ---
         function updateDashboard() {
-            const selectedMatchNum = parseInt(document.getElementById('match-selector').value);
-            const match = fullSchedule.find(m => m.num === selectedMatchNum);
-            if (!match || !teamDataCache.length) return;
+            const matchId = document.getElementById('match-selector').value;
+            const match = scheduleData.find(m => m.id == matchId);
+            if (!match) return;
 
-            const getT = (n) => teamDataCache.find(t => t['Team Number'] == n) || 
-                               {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
+            const getT = (num) => teamDataCache.find(t => t['Team Number'] == num) || 
+                                {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
             
-            const rD = match.red.map(getT); 
-            const bD = match.blue.map(getT);
+            const rD = match.redTeams.map(getT);
+            const bD = match.blueTeams.map(getT);
 
-            // Calculate Win Probability
-            const rEPA = rD.reduce((s, t) => s + (t['Avg Total'] || 0), 0);
-            const bEPA = bD.reduce((s, t) => s + (t['Avg Total'] || 0), 0);
-            const rProb = Math.round((1 / (1 + Math.pow(10, (-(rEPA - bEPA) / 65)))) * 100);
-
-            document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
-            document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
+            // EPA display (using sheet's EPA values)
+            document.getElementById('red-epa-val').innerText = match.redEPA ? match.redEPA.toFixed(1) : "0";
+            document.getElementById('blue-epa-val').innerText = match.blueEPA ? match.blueEPA.toFixed(1) : "0";
+            
+            const rProb = Math.round((1 / (1 + Math.pow(10, (-(match.redEPA - match.blueEPA) / 65)))) * 100);
             document.getElementById('red-fill').style.width = rProb + "%";
             document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
             document.getElementById('red-prob-text').innerText = rProb + "%";
             document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
-            renderCharts(match.red, match.blue, rD, bD);
-            renderBadges(match.red, match.blue);
+            renderCharts(match.redTeams, match.blueTeams, rD, bD);
+            renderBadges(match.redTeams, match.blueTeams);
         }
 
-        // PERCENTAGE HELPER: Handles 0.75 -> 75 and 75 -> 75
         const toPct = (v) => (v <= 1.1) ? (v * 100).toFixed(0) : v.toFixed(0);
 
         function renderCharts(rLabs, bLabs, rD, bD) {
@@ -242,16 +231,14 @@
             const sum = (d, k) => d.reduce((s, t) => s + (t[k] || 0), 0);
             const opt = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { stacked: true, ticks: {color: '#fff', font: {size: 10}} }, y: { stacked: true, ticks: {color: '#fff', font: {size: 10}} } } };
 
-            // Combined Bar
             charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
-                type: 'bar', data: { labels: ['Red Alliance', 'Blue Alliance'], datasets: [
+                type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
                     { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
                     { label: 'Teleop', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
                     { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
                 ]}, options: { ...opt, plugins: { legend: { display: true, position: 'bottom', labels: {color: '#fff', boxWidth: 10}} } }
             });
 
-            // Individual Breakdowns
             const breakdown = (id, labs, dat) => new Chart(document.getElementById(id), {
                 type: 'bar', data: { labels: labs, datasets: [
                     { label: 'Auto', data: dat.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
@@ -262,7 +249,6 @@
             charts.rB = breakdown('redBreakdownChart', rLabs, rD);
             charts.bB = breakdown('blueBreakdownChart', bLabs, bD);
 
-            // Nav Bar (Horizontal)
             const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
                 type: 'bar', data: { labels: labs, datasets: [
                     { label: 'Bump', data: dat.map(d => toPct(d['Bump %'] || 0)), backgroundColor: '#ef5350' },
@@ -286,8 +272,13 @@
             draw(red, 'red-citrus'); draw(blue, 'blue-citrus');
         }
 
-        fetchData(); 
-        setInterval(fetchData, 30000); // Sync every 30 seconds
+        function dismissWarning() {
+            dismissedMatch = document.getElementById('match-selector').value;
+            document.getElementById('live-banner').classList.remove('queueing');
+        }
+
+        fetchData();
+        setInterval(fetchData, 30000);
     </script>
 </body>
 </html>
