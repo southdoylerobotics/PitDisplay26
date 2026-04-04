@@ -38,9 +38,12 @@
         .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
         .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
         
-        /* Expanded Badge Grid to fit Rank Info */
+        /* GRIDS FOR STATS */
         .badge-grid { flex: 0 0 115px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
+        .death-grid { flex: 0 0 50px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
+        
         .citrus-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; font-size: 0.70em; border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px black; text-align: center; padding: 2px;}
+        .death-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; border: 1px solid rgba(255,255,255,0.1); color: #fff; text-shadow: 1px 1px 2px black; text-align: center; padding: 2px;}
     </style>
 </head>
 <body>
@@ -76,13 +79,29 @@
             <div class="card combined-card"><h3>Alliance Combined Potential</h3><div class="chart-container"><canvas id="combinedScoringChart"></canvas></div></div>
             <div class="card red-card"><h3 class="red-text">Red Breakdown</h3><div class="chart-container"><canvas id="redBreakdownChart"></canvas></div></div>
             <div class="card blue-card"><h3 class="blue-text">Blue Breakdown</h3><div class="chart-container"><canvas id="blueBreakdownChart"></canvas></div></div>
-            <div class="card red-card"><h3 class="red-text">Red Nav, Rank & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="redNavChart"></canvas></div><div id="red-citrus" class="badge-grid"></div></div></div>
-            <div class="card blue-card"><h3 class="blue-text">Blue Nav, Rank & Citrus</h3><div class="bottom-row-content"><div class="chart-container"><canvas id="blueNavChart"></canvas></div><div id="blue-citrus" class="badge-grid"></div></div></div>
+            
+            <div class="card red-card">
+                <h3 class="red-text">Red Nav, Reliability & Rank</h3>
+                <div class="bottom-row-content">
+                    <div class="chart-container"><canvas id="redNavChart"></canvas></div>
+                    <div id="red-deaths" class="death-grid"></div>
+                    <div id="red-citrus" class="badge-grid"></div>
+                </div>
+            </div>
+            
+            <div class="card blue-card">
+                <h3 class="blue-text">Blue Nav, Reliability & Rank</h3>
+                <div class="bottom-row-content">
+                    <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
+                    <div id="blue-deaths" class="death-grid"></div>
+                    <div id="blue-citrus" class="badge-grid"></div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- 1. FIVE GOOGLE SHEET LINKS ---
+        // --- FIVE GOOGLE SHEET LINKS ---
         const TEAM_NUMBER = 3824;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
@@ -100,7 +119,6 @@
 
         async function fetchData() {
             try {
-                // Fetch all 5 sheets simultaneously
                 const [avgRes, liveRes, tbaRes, epaRes, rankRes] = await Promise.all([
                     fetch(AVERAGES_URL),
                     fetch(LIVE_EXPORT_URL),
@@ -109,7 +127,6 @@
                     fetch(TBA_RANKINGS_URL)
                 ]);
 
-                // Parse the CSVs
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
@@ -187,22 +204,19 @@
             const match = scheduleData.find(m => m.id == selectedId);
             if (!match || !teamDataCache.length) return;
 
-            // Chart Data Lookups
             const getT = (num) => {
                 const team = teamDataCache.find(t => {
                     const cacheNum = Number(t['Team Number'] || t['team_number'] || t['Team']);
                     return cacheNum === Number(num);
                 });
-                return team || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
+                return team || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1, "Total Times Died":0};
             };
             
-            // EPA Data Lookups (from Statbotics)
             const getEPA = (num) => {
                 const team = epaDataCache.find(t => Number(t['Team']) === Number(num));
                 return team ? (Number(team['Total EPA']) || 0) : 0;
             };
 
-            // TBA Ranking Lookups
             const getRank = (num) => {
                 const team = rankingsDataCache.find(t => {
                     const cacheNum = Number(String(t['Team'] || '').replace('frc', '').trim());
@@ -227,7 +241,7 @@
             document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
 
             renderCharts(match.redTeams, match.blueTeams, rD, bD);
-            renderBadges(match.redTeams, match.blueTeams, getT, getRank);
+            renderStatsGrids(match.redTeams, match.blueTeams, getT, getRank);
         }
 
         const toPct = (v) => {
@@ -273,22 +287,39 @@
             charts.bN = nav('blueNavChart', bLabs, bD);
         }
 
-        function renderBadges(red, blue, getT, getRank) {
-            const getShade = (v) => v <= 1.4 ? "#1b5e20" : v <= 2.2 ? "#4caf50" : "#a5d6a7";
-            const draw = (list, id) => {
-                const el = document.getElementById(id); el.innerHTML = '';
+        function renderStatsGrids(red, blue, getT, getRank) {
+            const getCitrusShade = (v) => v <= 1.4 ? "#1b5e20" : v <= 2.2 ? "#4caf50" : "#a5d6a7";
+            
+            // 0 = Green, 1 = Orange/Yellow, 2 = Red, 3+ = Dark Red
+            const getDeathShade = (v) => v === 0 ? "#4caf50" : v === 1 ? "#ff9800" : v === 2 ? "#e53935" : "#b71c1c";
+
+            const drawBadges = (list, citrusId, deathsId) => {
+                const cEl = document.getElementById(citrusId); cEl.innerHTML = '';
+                const dEl = document.getElementById(deathsId); dEl.innerHTML = '';
+                
                 list.forEach(n => {
                     const t = getT(n); 
                     const rankData = getRank(n);
+                    
+                    // Render Rank/Citrus
                     const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
-                    el.innerHTML += `<div class="citrus-badge" style="background:${getShade(rnk)}">
+                    cEl.innerHTML += `<div class="citrus-badge" style="background:${getCitrusShade(rnk)}">
                         <div style="font-size: 1.15em; color: var(--gold); margin-bottom: 2px;">T-${n}</div>
                         <div>Rnk: ${rankData.rank} | ${rankData.rp} RP</div>
                         <div style="margin-top: 2px;">Citrus: ${rnk}</div>
                     </div>`;
+
+                    // Render Deaths
+                    const deaths = parseInt(t["Total Times Died"]) || 0;
+                    dEl.innerHTML += `<div class="death-badge" style="background:${getDeathShade(deaths)}">
+                        <span style="font-size: 0.6em; text-transform: uppercase;">Died</span>
+                        <span style="font-size: 1.3em;">${deaths}</span>
+                    </div>`;
                 });
             };
-            draw(red, 'red-citrus'); draw(blue, 'blue-citrus');
+
+            drawBadges(red, 'red-citrus', 'red-deaths'); 
+            drawBadges(blue, 'blue-citrus', 'blue-deaths');
         }
 
         function dismissWarning() {
