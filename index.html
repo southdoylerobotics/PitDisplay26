@@ -263,55 +263,101 @@
         }
 
         function processLiveSchedule(liveData, tbaData) {
-            const currentFieldMatchNum = Number(liveData[0]['Current Match Number']) || 0;
+            // 1. Extract the string and parse out the number
+            const rawFieldMatch = String(liveData[0]['Current Match Number'] || '');
+            let currentFieldMatchNum = 0;
+            let fieldMatchDisplay = rawFieldMatch;
+
+            // Look for digits in the string (e.g., pulls "4" out of "2026lake_Playoff 4")
+            const numMatch = rawFieldMatch.match(/\d+/); 
+            if (numMatch) {
+                currentFieldMatchNum = Number(numMatch[0]);
+                // Clean up the display so it just says "Playoff 4" instead of "2026lake_Playoff 4"
+                if (rawFieldMatch.includes('_')) {
+                    fieldMatchDisplay = rawFieldMatch.split('_')[1].replace('Playoff', 'Playoff ');
+                }
+            } else {
+                currentFieldMatchNum = Number(rawFieldMatch) || 0;
+            }
+
             const matchesAway = Number(liveData[0]['Matches Until 3824']) || 0;
             const targetMatchNum = currentFieldMatchNum + matchesAway;
+            
+            // Format the target match display
+            const isPlayoffs = rawFieldMatch.toLowerCase().includes('playoff');
+            const targetMatchDisplay = isPlayoffs ? `Playoff ${targetMatchNum}` : targetMatchNum;
 
-            document.getElementById('field-match').innerText = currentFieldMatchNum;
-            document.getElementById('target-match').innerText = targetMatchNum;
+            document.getElementById('field-match').innerText = fieldMatchDisplay;
+            document.getElementById('target-match').innerText = targetMatchDisplay;
             document.getElementById('matches-away').innerText = matchesAway;
             document.getElementById('warning-matches-away').innerText = matchesAway;
 
+            // 2. Allow Playoff Matches to load into the dropdown
             scheduleData = tbaData
-                .filter(row => String(row['Comp Level'] || '').toLowerCase() === 'qm') 
                 .map(row => {
                     const getTeam = (col) => Number(String(row[col] || '').replace('frc', '').trim());
+                    const compLevel = String(row['Comp Level'] || '').toUpperCase();
+                    const matchNum = Number(row['Match Number']);
+
+                    // Give playoffs a unique ID (add 1000) so Match 1 and Playoff 1 don't conflict
+                    const uniqueId = compLevel === 'QM' ? matchNum : matchNum + 1000;
+
                     return {
-                        id: Number(row['Match Number']),
+                        id: uniqueId,
+                        actualNum: matchNum,
+                        compLevel: compLevel,
+                        label: compLevel === 'QM' ? `Match ${matchNum}` : `Playoff ${matchNum}`,
                         redTeams: [getTeam('Red 1'), getTeam('Red 2'), getTeam('Red 3')],
                         blueTeams: [getTeam('Blue 1'), getTeam('Blue 2'), getTeam('Blue 3')]
                     };
-                }).filter(m => m.id);
+                }).filter(m => m.actualNum); // Filter out empty rows instead of QMs
 
             const selector = document.getElementById('match-selector');
             const previousVal = selector.value;
             selector.innerHTML = '';
+            
             scheduleData.sort((a,b) => a.id - b.id).forEach(m => {
                 const opt = document.createElement('option');
-                opt.value = m.id; opt.innerText = `Match ${m.id}`;
+                opt.value = m.id;
+                opt.innerText = m.label;
                 selector.appendChild(opt);
             });
 
-            const calculatedMatch = scheduleData.find(m => m.id === targetMatchNum);
+            // 3. Find the target match to auto-select
+            // If we are in playoffs, look for the match where compLevel is NOT 'QM'
+            const calculatedMatch = scheduleData.find(m => 
+                m.actualNum === targetMatchNum && 
+                (isPlayoffs ? m.compLevel !== 'QM' : m.compLevel === 'QM')
+            );
+            
             if (!userManuallySelected || !previousVal) {
                 if (calculatedMatch) selector.value = calculatedMatch.id;
             }
 
+            // Target Bumper Color Logic
             const bumperSpan = document.getElementById('bumper-color');
             if (calculatedMatch) {
                 if (calculatedMatch.redTeams.includes(TEAM_NUMBER)) {
-                    bumperSpan.innerText = "[ RED BUMPERS ]"; bumperSpan.style.color = "var(--red-alliance)";
+                    bumperSpan.innerText = "[ RED BUMPERS ]";
+                    bumperSpan.style.color = "var(--red-alliance)";
                 } else if (calculatedMatch.blueTeams.includes(TEAM_NUMBER)) {
-                    bumperSpan.innerText = "[ BLUE BUMPERS ]"; bumperSpan.style.color = "var(--blue-alliance)";
-                } else { bumperSpan.innerText = ""; }
+                    bumperSpan.innerText = "[ BLUE BUMPERS ]";
+                    bumperSpan.style.color = "var(--blue-alliance)";
+                } else {
+                    bumperSpan.innerText = "";
+                }
+            } else {
+                bumperSpan.innerText = "";
             }
 
+            // Queueing Logic: Show the full screen overlay
             const overlay = document.getElementById('full-screen-warning');
             if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetMatchNum) {
                 overlay.style.display = "flex";
-            } else { overlay.style.display = "none"; }
+            } else {
+                overlay.style.display = "none";
+            }
         }
-
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
         function getTeamTotalPoints(d) { return parseFloat(d['Avg Total']) || (parseFloat(d['Avg Auto']||0) + parseFloat(d['Avg Teleop']||0) + parseFloat(d['Avg Endgame']||0)); }
 
