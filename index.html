@@ -305,7 +305,8 @@
                 if (!val || val === 0) return 'transparent';
                 // Calculate intensity (0.15 to 0.85 opacity based on relation to the max score)
                 const intensity = 0.15 + (0.7 * (val / max)); 
-                return type === 'red' ? `rgba(220, 20, 40, ${intensity})` : `rgba(30, 100, 255, ${intensity})`;
+                // Updated to match #ef5350 (Red) and #42a5f5 (Blue)
+                return type === 'red' ? `rgba(239, 83, 80, ${intensity})` : `rgba(66, 165, 245, ${intensity})`;
             };
 
             const buildRows = (labs, dat, type) => {
