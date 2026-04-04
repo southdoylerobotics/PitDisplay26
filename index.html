@@ -3,180 +3,277 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3824 Pit Display 2026</title>
+    <title>3824 Pit Strategy Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         :root {
-            --bg: #0a0a0a; --card: #141414; --gold: #ffc107;
-            --red: #ff4d4d; --blue: #4d94ff; --text: #eee;
+            --bg-color: #080808;
+            --card-bg: #141414;
+            --red-alliance: #ff4d4d;
+            --blue-alliance: #4d94ff;
+            --gold: #ffc107;
+            --text: #ffffff;
         }
-        /* Lock the screen to prevent scrolling */
-        html, body { 
-            height: 100vh; width: 100vw; margin: 0; padding: 0; 
-            background: var(--bg); color: var(--text); 
-            font-family: 'Segoe UI', sans-serif; overflow: hidden; 
+
+        /* 1. FORCE BOX SIZING - Prevents padding from breaking height limits */
+        * { box-sizing: border-box; }
+
+        /* 2. LOCK THE VIEWPORT - Absolutely no scrolling allowed */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        .main-wrapper {
-            display: flex; flex-direction: column; height: 100vh; padding: 10px; box-sizing: border-box; gap: 10px;
+
+        /* 3. MAIN FLEX CONTAINER - Strict 100% height */
+        .dashboard-wrapper {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            gap: 10px;
         }
+
+        /* 4. HEADER - Only takes up the space it needs */
         .header {
-            flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center;
-            background: var(--card); padding: 10px 20px; border-radius: 8px; border-bottom: 3px solid var(--gold);
+            flex: none; /* Do not stretch or shrink */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border-bottom: 4px solid var(--gold);
         }
-        .win-prob-container { width: 300px; text-align: center; }
-        .prob-bar { width: 100%; height: 18px; background: #333; border-radius: 9px; overflow: hidden; display: flex; margin: 5px 0; }
-        
-        /* Dashboard Grid */
-        .dashboard-grid {
-            flex: 1; display: grid; grid-template-columns: 1.2fr 0.8fr; grid-template-rows: 1fr 1fr; gap: 10px; min-height: 0;
+
+        .win-prob-container { width: 350px; text-align: center; }
+        .prob-bar { width: 100%; height: 20px; background: #333; border-radius: 10px; overflow: hidden; display: flex; margin: 5px 0; }
+
+        /* 5. GRID CONTAINER - Takes exactly the remaining space */
+        .grid {
+            flex: 1 1 0; /* CRITICAL: Starts at 0 height and stretches to fill */
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 10px;
+            min-height: 0; /* Prevents CSS Grid blowout */
+            overflow: hidden;
         }
+
+        /* 6. CARDS - Locked to their grid cells */
         .card {
-            background: var(--card); padding: 12px; border-radius: 8px; 
-            display: flex; flex-direction: column; min-height: 0; position: relative;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            min-height: 0; /* CRITICAL */
+            overflow: hidden;
         }
-        .chart-container { flex: 1; position: relative; min-height: 0; width: 100%; }
-        
-        /* Citrus Badges */
-        .badge-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; min-height: 0; }
-        .citrus-badge { 
-            display: flex; flex-direction: column; justify-content: center; align-items: center; 
-            border-radius: 6px; font-weight: bold; font-size: 0.9rem; border: 1px solid rgba(255,255,255,0.05); 
+
+        h3 { flex: none; margin: 0 0 10px 0; font-size: 1.1rem; text-transform: uppercase; }
+        h1 { margin: 0; color: var(--gold); }
+        .red-text { color: var(--red-alliance); }
+        .blue-text { color: var(--blue-alliance); }
+        #status-text { font-size: 0.8em; color: #888; }
+
+        /* 7. CHART CONTAINER - The ultimate jail for Chart.js */
+        .chart-container {
+            flex: 1 1 0; /* CRITICAL: Fills exact remaining card space */
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 0;
         }
-        h1 { margin: 0; font-size: 1.4rem; color: var(--gold); }
-        h3 { margin: 0 0 8px 0; font-size: 1rem; text-transform: uppercase; letter-spacing: 1px; }
-        .red-t { color: var(--red); } .blue-t { color: var(--blue); }
-        #status-text { font-size: 0.7rem; color: #777; }
+
+        /* 8. BADGE GRID */
+        .badge-grid {
+            flex: 1 1 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .citrus-badge {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
     </style>
 </head>
 <body>
 
-<div class="main-wrapper">
-    <div class="header">
-        <div>
-            <h1>3824 STRATEGY</h1>
-            <span id="status-text">Syncing...</span>
+    <div class="dashboard-wrapper">
+        <div class="header">
+            <div>
+                <h1>3824 PIT STRATEGY</h1>
+                <span id="status-text">Connecting to Google Sheets...</span>
+            </div>
+            <div class="win-prob-container">
+                <div style="display:flex; justify-content: space-between; font-weight: bold;">
+                    <span class="red-text">RED EPA: <span id="red-epa-val">0</span></span>
+                    <span class="blue-text">BLUE EPA: <span id="blue-epa-val">0</span></span>
+                </div>
+                <div class="prob-bar">
+                    <div id="red-fill" style="width: 50%; background: var(--red-alliance); transition: width 1s ease-in-out;"></div>
+                    <div id="blue-fill" style="width: 50%; background: var(--blue-alliance); transition: width 1s ease-in-out;"></div>
+                </div>
+                <div style="display:flex; justify-content: space-between; font-size: 0.9em;">
+                    <span id="red-prob-text">50%</span>
+                    <span id="blue-prob-text">50%</span>
+                </div>
+            </div>
         </div>
-        <div class="win-prob-container">
-            <div style="display:flex; justify-content: space-between; font-size: 0.8rem; font-weight: bold;">
-                <span class="red-t">RED: <span id="r-epa">0</span></span>
-                <span class="blue-t">BLUE: <span id="b-epa">0</span></span>
+
+        <div class="grid">
+            <div class="card">
+                <h3>Alliance Scoring Potential (Points)</h3>
+                <div class="chart-container">
+                    <canvas id="scoringChart"></canvas>
+                </div>
             </div>
-            <div class="prob-bar">
-                <div id="r-fill" style="width: 50%; background: var(--red); transition: 1s;"></div>
-                <div id="b-fill" style="width: 50%; background: var(--blue); transition: 1s;"></div>
+
+            <div class="card">
+                <h3>Navigation Habit (Bump vs Trench)</h3>
+                <div class="chart-container">
+                    <canvas id="navChart"></canvas>
+                </div>
             </div>
-            <div style="display:flex; justify-content: space-between; font-size: 0.7rem;">
-                <span id="r-prob">50%</span><span id="b-prob">50%</span>
+
+            <div class="card">
+                <h3 class="red-text">Red Alliance Citrus Quality</h3>
+                <div id="red-citrus" class="badge-grid"></div>
+            </div>
+
+            <div class="card">
+                <h3 class="blue-text">Blue Alliance Citrus Quality</h3>
+                <div id="blue-citrus" class="badge-grid"></div>
             </div>
         </div>
     </div>
 
-    <div class="dashboard-grid">
-        <div class="card">
-            <h3>Alliance Scoring Potential</h3>
-            <div class="chart-container"><canvas id="scoreChart"></canvas></div>
-        </div>
-        <div class="card">
-            <h3>Navigation (Bump vs Trench)</h3>
-            <div class="chart-container"><canvas id="navChart"></canvas></div>
-        </div>
-        <div class="card">
-            <h3 class="red-t">Red Alliance Citrus Quality</h3>
-            <div id="red-citrus" class="badge-grid"></div>
-        </div>
-        <div class="card">
-            <h3 class="blue-t">Blue Alliance Citrus Quality</h3>
-            <div id="blue-citrus" class="badge-grid"></div>
-        </div>
-    </div>
-</div>
+    <script>
+        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
+        let charts = {};
 
-<script>
-    const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-    let charts = {};
+        function getGreenShade(rank) {
+            const val = parseFloat(rank);
+            if (val >= 2.6) return "#1b5e20"; 
+            if (val >= 1.8) return "#4caf50"; 
+            return "#a5d6a7"; 
+        }
 
-    function getGreen(r) {
-        return r >= 2.6 ? "#1b5e20" : r >= 1.8 ? "#4caf50" : "#81c784";
-    }
+        async function updateDashboard() {
+            try {
+                const response = await fetch(AVERAGES_URL);
+                const csvData = await response.text();
+                const results = Papa.parse(csvData, { header: true, skipEmptyLines: true, dynamicTyping: true });
+                const teamAverages = results.data;
 
-    async function update() {
-        try {
-            const res = await fetch(SHEET_URL);
-            const csv = await res.text();
-            const data = Papa.parse(csv, {header:true, dynamicTyping:true, skipEmptyLines:true}).data;
+                // YOUR NEXT MATCH TEAMS
+                const redTeams = [16, 8044, 2183];
+                const blueTeams = [3824, 3468, 2221];
+                const allMatchTeams = [...redTeams, ...blueTeams];
 
-            // Update Match Teams Here
-            const red = [16, 8044, 2183]; const blue = [3824, 3468, 2221];
-            const allTeams = [...red, ...blue];
+                const matchData = allMatchTeams.map(num => {
+                    return teamAverages.find(t => t['Team Number'] == num) || 
+                    { "Avg Auto": 0, "Avg Teleop": 0, "Avg Endgame": 0, "Avg Total": 0, "Bump %": 0, "Trench %": 0, "Avg Citrus": 1 };
+                });
 
-            const matchData = allTeams.map(n => {
-                return data.find(t => t['Team Number'] == n) || 
-                {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Bump %":0,"Trench %":0,"Avg Citrus":1};
-            });
+                const redEPA = matchData.slice(0,3).reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+                const blueEPA = matchData.slice(3,6).reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+                
+                updateProbability(redEPA.toFixed(1), blueEPA.toFixed(1));
+                renderCharts(allMatchTeams, matchData);
+                renderBadges(redTeams, blueTeams, teamAverages);
+                
+                document.getElementById('status-text').innerText = "Last Updated: " + new Date().toLocaleTimeString();
+            } catch (error) {
+                console.error(error);
+                document.getElementById('status-text').innerText = "SYNC FAILED - Checking again in 30s...";
+            }
+        }
 
-            const rEPA = matchData.slice(0,3).reduce((s, t) => s + (t['Avg Total'] || 0), 0);
-            const bEPA = matchData.slice(3,6).reduce((s, t) => s + (t['Avg Total'] || 0), 0);
-            
-            // Win Prob Logic
+        function updateProbability(rEPA, bEPA) {
             const diff = rEPA - bEPA;
-            const rP = Math.round((1 / (1 + Math.pow(10, (-diff / 65)))) * 100);
-            document.getElementById('r-epa').innerText = rEPA.toFixed(1);
-            document.getElementById('b-epa').innerText = bEPA.toFixed(1);
-            document.getElementById('r-fill').style.width = rP + "%";
-            document.getElementById('b-fill').style.width = (100-rP) + "%";
-            document.getElementById('r-prob').innerText = rP + "%";
-            document.getElementById('b-prob').innerText = (100-rP) + "%";
+            const rProb = Math.round((1 / (1 + Math.pow(10, (-diff / 65)))) * 100);
+            document.getElementById('red-epa-val').innerText = rEPA;
+            document.getElementById('blue-epa-val').innerText = bEPA;
+            document.getElementById('red-fill').style.width = rProb + "%";
+            document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
+            document.getElementById('red-prob-text').innerText = rProb + "%";
+            document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
+        }
 
-            render(allTeams, matchData);
-            badges(red, blue, data);
-            document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
-        } catch (e) { document.getElementById('status-text').innerText = "OFFLINE"; }
-    }
+        function renderCharts(labels, data) {
+            if (charts.scoring) charts.scoring.destroy();
+            if (charts.nav) charts.nav.destroy();
 
-    function render(labs, d) {
-        if(charts.s) charts.s.destroy(); if(charts.n) charts.n.destroy();
-        const cfg = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#fff', font: {size: 10}}}}};
+            // Universal Chart Options to prevent resizing bugs
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false, // CRITICAL: Lets the CSS handle the sizing
+                plugins: { legend: { position: 'bottom', labels: {color: '#fff'} } }
+            };
 
-        charts.s = new Chart(document.getElementById('scoreChart'), {
-            type: 'bar',
-            data: {
-                labels: labs,
-                datasets: [
-                    { label: 'Auto', data: d.map(x => x['Avg Auto']), backgroundColor: '#FFD700' },
-                    { label: 'Teleop', data: d.map(x => x['Avg Teleop']), backgroundColor: '#42a5f5' },
-                    { label: 'End', data: d.map(x => x['Avg Endgame']), backgroundColor: '#66bb6a' }
-                ]
-            },
-            options: { ...cfg, scales: { x:{stacked:true, ticks:{color:'#fff'}}, y:{stacked:true, ticks:{color:'#fff'}}}}
-        });
-
-        charts.n = new Chart(document.getElementById('navChart'), {
-            type: 'bar',
-            data: {
-                labels: labs,
-                datasets: [
-                    { label: 'Bump %', data: d.map(x => parseFloat(x['Bump %'])*100), backgroundColor: '#ef5350' },
-                    { label: 'Trench %', data: d.map(x => parseFloat(x['Trench %'])*100), backgroundColor: '#ab47bc' }
-                ]
-            },
-            options: { ...cfg, indexAxis: 'y', scales: { x:{max:100, ticks:{color:'#fff'}}, y:{ticks:{color:'#fff'}}}}
-        });
-    }
-
-    function badges(r, b, all) {
-        const draw = (list, id) => {
-            const el = document.getElementById(id); el.innerHTML = '';
-            list.forEach(n => {
-                const t = all.find(x => x['Team Number'] == n) || {"Avg Citrus": 1};
-                const rnk = parseFloat(t["Avg Citrus"] || 1).toFixed(1);
-                el.innerHTML += `<div class="citrus-badge" style="background:${getGreen(rnk)}">T-${n}<br><small>${rnk}</small></div>`;
+            charts.scoring = new Chart(document.getElementById('scoringChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Auto', data: data.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
+                        { label: 'Teleop', data: data.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
+                        { label: 'Endgame', data: data.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' },
+                        { label: 'Avg Total', type: 'line', data: data.map(d => d['Avg Total']), borderColor: '#ffffff', backgroundColor: 'transparent', borderWidth: 2, pointRadius: 4 }
+                    ]
+                },
+                options: { ...commonOptions, scales: { x: { stacked: true, ticks: {color: '#fff'} }, y: { stacked: true, ticks: {color: '#fff'} } } }
             });
-        };
-        draw(r, 'red-citrus'); draw(b, 'blue-citrus');
-    }
 
-    update(); setInterval(update, 30000);
-</script>
+            charts.nav = new Chart(document.getElementById('navChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Bump %', data: data.map(d => parseFloat(d['Bump %']) * 100 || 0), backgroundColor: '#ef5350' },
+                        { label: 'Trench %', data: data.map(d => parseFloat(d['Trench %']) * 100 || 0), backgroundColor: '#ab47bc' }
+                    ]
+                },
+                options: { ...commonOptions, indexAxis: 'y', scales: { x: { max: 100, ticks: {color: '#fff'} }, y: { ticks: {color: '#fff'} } } }
+            });
+        }
+
+        function renderBadges(red, blue, averages) {
+            const rCont = document.getElementById('red-citrus');
+            const bCont = document.getElementById('blue-citrus');
+            rCont.innerHTML = ''; bCont.innerHTML = '';
+
+            const createBadge = (num) => {
+                const team = averages.find(t => t['Team Number'] == num) || { "Avg Citrus": 1 };
+                const rank = parseFloat(team["Avg Citrus"] || 1).toFixed(1);
+                return `<div class="citrus-badge" style="background:${getGreenShade(rank)}">Team ${num}<br><span style="font-size:0.8em; font-weight:normal; opacity:0.9;">Rank: ${rank}</span></div>`;
+            };
+
+            red.forEach(n => rCont.innerHTML += createBadge(n));
+            blue.forEach(n => bCont.innerHTML += createBadge(n));
+        }
+
+        updateDashboard();
+        setInterval(updateDashboard, 30000);
+    </script>
 </body>
 </html>
