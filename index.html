@@ -8,8 +8,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         :root {
-            --bg-color: #0f0f0f;
-            --card-bg: #1a1a1a;
+            --bg-color: #0d0d0d;
+            --card-bg: #161616;
             --red-alliance: #ff4d4d;
             --blue-alliance: #4d94ff;
             --gold: #ffc107;
@@ -20,20 +20,20 @@
         .win-prob-container { width: 350px; text-align: center; }
         .prob-bar { width: 100%; height: 25px; background: #333; border-radius: 12px; overflow: hidden; display: flex; margin: 10px 0; }
         .grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 20px; }
-        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); min-height: 300px; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.6); min-height: 350px; }
         .badge-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
-        .citrus-badge { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1em; border: 1px solid rgba(255,255,255,0.1); }
+        .citrus-badge { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1em; border: 1px solid rgba(255,255,255,0.1); transition: 0.3s; }
         .red-text { color: var(--red-alliance); }
         .blue-text { color: var(--blue-alliance); }
-        #status-text { font-size: 0.8em; color: #666; }
+        #status-text { font-size: 0.8em; color: #666; margin-top: 5px; display: block; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <div>
-            <h1 style="margin:0; color: var(--gold);">PIT DISPLAY 2026</h1>
-            <p id="status-text">Initializing Dashboard...</p>
+            <h1 style="margin:0; color: var(--gold);">3824 PIT STRATEGY</h1>
+            <span id="status-text">Connecting to Google Sheets...</span>
         </div>
         <div class="win-prob-container">
             <div style="display:flex; justify-content: space-between; font-weight: bold;">
@@ -53,10 +53,158 @@
 
     <div class="grid">
         <div class="card">
-            <h3>Alliance Scoring Potential (Avg)</h3>
+            <h3 style="margin-top:0;">Alliance Scoring Potential (Points)</h3>
             <canvas id="scoringChart"></canvas>
         </div>
+
         <div class="card">
-            <h3>Navigation Habit (Bump vs Trench)</h3>
+            <h3 style="margin-top:0;">Navigation Habit (Bump vs Trench)</h3>
             <canvas id="navChart"></canvas>
- 
+        </div>
+
+        <div class="card">
+            <h3 class="red-text" style="margin-top:0;">Red Alliance Citrus Quality</h3>
+            <div id="red-citrus" class="badge-grid"></div>
+        </div>
+
+        <div class="card">
+            <h3 class="blue-text" style="margin-top:0;">Blue Alliance Citrus Quality</h3>
+            <div id="blue-citrus" class="badge-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // GOOGLE SHEETS CSV URL
+        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
+        
+        let charts = {};
+
+        function getGreenShade(rank) {
+            const val = parseFloat(rank);
+            if (val >= 2.6) return "#1b5e20"; 
+            if (val >= 1.8) return "#4caf50"; 
+            return "#a5d6a7"; 
+        }
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch(AVERAGES_URL);
+                const csvData = await response.text();
+                
+                const results = Papa.parse(csvData, { 
+                    header: true, 
+                    skipEmptyLines: true,
+                    dynamicTyping: true 
+                });
+
+                const teamAverages = results.data;
+                console.log("Team Data Sync Successful:", teamAverages);
+
+                // MATCH TEAMS - Change these to your upcoming match partners/opponents
+                const redTeams = [16, 8044, 2183];
+                const blueTeams = [3824, 3468, 2221];
+
+                const matchData = [...redTeams, ...blueTeams].map(num => {
+                    const team = teamAverages.find(t => t['Team Number'] == num);
+                    if (!team) {
+                        console.warn(`Team ${num} missing from Averages!`);
+                        return { "Avg Auto": 0, "Avg Teleop": 0, "Avg Endgame": 0, "Avg Total": 0, "Bump %": 0, "Trench %": 0, "Avg Citrus": 1 };
+                    }
+                    return team;
+                });
+
+                // Calculate Alliance EPAs based on Avg Total
+                const redEPA = matchData.slice(0,3).reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+                const blueEPA = matchData.slice(3,6).reduce((sum, t) => sum + (t['Avg Total'] || 0), 0);
+                
+                updateProbability(redEPA.toFixed(1), blueEPA.toFixed(1));
+                renderCharts([...redTeams, ...blueTeams], matchData);
+                renderBadges(redTeams, blueTeams, teamAverages);
+                
+                document.getElementById('status-text').innerText = "Last Updated: " + new Date().toLocaleTimeString();
+
+            } catch (error) {
+                console.error("Dashboard Error:", error);
+                document.getElementById('status-text').innerText = "SYNC FAILED - Check Console (F12)";
+            }
+        }
+
+        function updateProbability(rEPA, bEPA) {
+            const diff = rEPA - bEPA;
+            // Win probability based on total points difference
+            const rProb = Math.round((1 / (1 + Math.pow(10, (-diff / 65)))) * 100);
+            document.getElementById('red-epa-val').innerText = rEPA;
+            document.getElementById('blue-epa-val').innerText = bEPA;
+            document.getElementById('red-fill').style.width = rProb + "%";
+            document.getElementById('blue-fill').style.width = (100 - rProb) + "%";
+            document.getElementById('red-prob-text').innerText = rProb + "%";
+            document.getElementById('blue-prob-text').innerText = (100 - rProb) + "%";
+        }
+
+        function renderCharts(labels, data) {
+            if (charts.scoring) charts.scoring.destroy();
+            if (charts.nav) charts.nav.destroy();
+
+            // Scoring Potential
+            charts.scoring = new Chart(document.getElementById('scoringChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Auto', data: data.map(d => d['Avg Auto']), backgroundColor: '#FFD700' },
+                        { label: 'Teleop', data: data.map(d => d['Avg Teleop']), backgroundColor: '#42a5f5' },
+                        { label: 'Endgame', data: data.map(d => d['Avg Endgame']), backgroundColor: '#66bb6a' },
+                        { label: 'Total Points', type: 'line', data: data.map(d => d['Avg Total']), borderColor: '#ffc107', backgroundColor: 'transparent', borderWidth: 3, pointRadius: 5 }
+                    ]
+                },
+                options: { 
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { 
+                        x: { stacked: true, ticks: {color: '#fff'} }, 
+                        y: { stacked: true, ticks: {color: '#fff'} } 
+                    },
+                    plugins: { legend: { position: 'bottom', labels: {color: '#fff'} } } 
+                }
+            });
+
+            // Navigation Habit
+            charts.nav = new Chart(document.getElementById('navChart'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Bump %', data: data.map(d => parseFloat(d['Bump %']) * 100 || 0), backgroundColor: '#ef5350' },
+                        { label: 'Trench %', data: data.map(d => parseFloat(d['Trench %']) * 100 || 0), backgroundColor: '#ab47bc' }
+                    ]
+                },
+                options: { 
+                    indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                    scales: { 
+                        x: { max: 100, ticks: {color: '#fff'} }, 
+                        y: { ticks: {color: '#fff'} } 
+                    }, 
+                    plugins: { legend: { position: 'bottom', labels: {color: '#fff'} } } 
+                }
+            });
+        }
+
+        function renderBadges(red, blue, averages) {
+            const rCont = document.getElementById('red-citrus');
+            const bCont = document.getElementById('blue-citrus');
+            rCont.innerHTML = ''; bCont.innerHTML = '';
+
+            const createBadge = (num) => {
+                const team = averages.find(t => t['Team Number'] == num) || { "Avg Citrus": 1 };
+                const rank = parseFloat(team["Avg Citrus"] || 1).toFixed(1);
+                return `<div class="citrus-badge" style="background:${getGreenShade(rank)}">Team ${num}<br><span style="font-size:0.7em; opacity: 0.8;">Rank: ${rank}</span></div>`;
+            };
+
+            red.forEach(n => rCont.innerHTML += createBadge(n));
+            blue.forEach(n => bCont.innerHTML += createBadge(n));
+        }
+
+        updateDashboard();
+        setInterval(updateDashboard, 30000); // 30-second loop
+    </script>
+</body>
+</html>
