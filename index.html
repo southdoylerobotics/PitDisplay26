@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>6517 Strategy & Pit Alerts</title>
+    <title>6517 Pit Strategy & Alerts</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
@@ -18,7 +18,7 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* --- PIT ALERT OVERLAY --- */
+        /* --- NEW ALERT OVERLAY (Requested Pop-up Style) --- */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
@@ -27,7 +27,7 @@
         .alert-content { width: 90%; max-height: 95vh; display: flex; flex-direction: column; align-items: center; text-align: center; }
         #alert-issue-box { width: 100%; max-height: 55vh; overflow-y: auto; margin: 10px 0; padding: 10px; }
         #alert-issue-text {
-            font-size: clamp(2rem, 6vw, 8rem); font-weight: 900; color: white;
+            font-size: clamp(2.5rem, 6vw, 7rem); font-weight: 900; color: white;
             line-height: 1.1; text-transform: uppercase; word-wrap: break-word;
             text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
         }
@@ -41,23 +41,28 @@
             color: black; border: none; font-weight: bold; border-radius: 10px; margin-top: 20px;
         }
 
-        /* --- DASHBOARD STYLES --- */
+        /* --- RESTORED ORIGINAL DASHBOARD STYLES --- */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
         .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .tab-btn.active { background: var(--gold); color: black; }
+        
         .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
+        
         .win-prob-container { width: 300px; text-align: center; }
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
+        
         .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
         .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .combined-card { grid-column: 1 / -1; } .red-card { border-left: 4px solid var(--red-alliance); } .blue-card { border-left: 4px solid var(--blue-alliance); }
+        
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; }
-        .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; font-size: 0.8em; }
+        .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; color: #ccc; font-size: 0.8em; }
         .data-table td { padding: 5px; border-bottom: 1px solid #333; }
         .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
+        
         h3 { margin: 0 0 5px 0; font-size: 0.9rem; text-transform: uppercase; }
         .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
     </style>
@@ -66,10 +71,10 @@
 
     <div id="match-alert-overlay" class="alert-overlay">
         <div class="alert-content">
-            <p style="color: rgba(255,255,255,0.8); letter-spacing: 15px; margin: 0; font-weight: bold;">PIT ALERT</p>
-            <div id="alert-issue-box"><div id="alert-issue-text">LOADING ISSUE...</div></div>
+            <p style="color: rgba(255,255,255,0.8); letter-spacing: 15px; margin: 0; font-weight: bold;">NEW PIT ALERT</p>
+            <div id="alert-issue-box"><div id="alert-issue-text">LOADING...</div></div>
             <div id="alert-sev-badge" class="sev-badge">#</div>
-            <button class="alert-dismiss" onclick="dismissPitAlert()">ACKNOWLEDGE</button>
+            <button class="alert-dismiss" onclick="dismissPitAlert()">DISMISS / ACKNOWLEDGE</button>
         </div>
     </div>
 
@@ -107,11 +112,11 @@
                 <div class="chart-container"><canvas id="combinedScoringChart"></canvas></div>
             </div>
             <div class="card red-card">
-                <h3 class="red-text">Red Breakdown</h3>
+                <h3 class="red-text">Red Alliance</h3>
                 <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="red-table-body"></tbody></table>
             </div>
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Breakdown</h3>
+                <h3 class="blue-text">Blue Alliance</h3>
                 <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="blue-table-body"></tbody></table>
             </div>
             <div class="card red-card">
@@ -131,7 +136,7 @@
         const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
 
-        let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], userManuallySelected = false, autoDismissTimer = null;
+        let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], userManuallySelected = false;
 
         async function fetchData() {
             try {
@@ -149,13 +154,11 @@
                     processLiveSchedule(liveData, tbaData);
                     updateDashboard();
                 }
-
                 document.getElementById('status-text').innerText = "Updated: " + new Date().toLocaleTimeString();
                 checkPitAlerts();
-            } catch (e) { console.error("Sync Error", e); }
+            } catch (e) { console.error(e); }
         }
 
-        // --- ALERT LOGIC ---
         async function checkPitAlerts() {
             try {
                 const res = await fetch(ALERTS_URL + `&t=${Date.now()}`);
@@ -167,7 +170,7 @@
                         triggerAlertUI(data[latestIdx], latestIdx);
                     }
                 }
-            } catch (err) { console.error("Alert Error", err); }
+            } catch (err) { console.error(err); }
         }
 
         function triggerAlertUI(alert, rowIndex) {
@@ -189,19 +192,14 @@
             overlay.style.borderColor = border;
             overlay.dataset.rowIndex = rowIndex;
             overlay.style.display = "flex";
-
-            clearTimeout(autoDismissTimer);
-            autoDismissTimer = setTimeout(dismissPitAlert, 300000);
         }
 
         function dismissPitAlert() {
             const overlay = document.getElementById('match-alert-overlay');
             if (overlay.dataset.rowIndex) localStorage.setItem('lastAckAlertRow', overlay.dataset.rowIndex);
             overlay.style.display = "none";
-            clearTimeout(autoDismissTimer);
         }
 
-        // --- DASHBOARD LOGIC ---
         function processLiveSchedule(liveData, tbaData) {
             const fieldMatch = String(liveData[0]['Current Match Number'] || '');
             const matchesAway = Number(liveData[0]['Matches Until 6517']) || 0;
@@ -210,16 +208,14 @@
 
             scheduleData = tbaData.map(row => ({
                 id: Number(row['Match Number']),
-                label: `Match ${row['Match Number']}`,
                 redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
                 blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
             })).filter(m => m.id);
 
             const selector = document.getElementById('match-selector');
             if (!userManuallySelected) {
-                selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
-                const currentNum = parseInt(fieldMatch) || 0;
-                selector.value = currentNum + matchesAway;
+                selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
+                selector.value = parseInt(fieldMatch) + matchesAway;
             }
         }
 
@@ -244,31 +240,13 @@
 
             renderTable('red-table-body', match.redTeams, rD);
             renderTable('blue-table-body', match.blueTeams, bD);
-            renderAllianceChart(rD, bD);
         }
 
         function renderTable(id, teams, data) {
             document.getElementById(id).innerHTML = teams.map((n, i) => {
                 const d = data[i];
-                return `<tr><td style="color:var(--gold); font-weight:bold;">${n}</td><td>${(d['Avg Auto']).toFixed(1)}</td><td>${(d['Avg Teleop']).toFixed(1)}</td><td>${(d['Avg Endgame']).toFixed(1)}</td><td style="background:rgba(255,193,7,0.2)">${(d['Avg Total']).toFixed(1)}</td></tr>`;
+                return `<tr><td style="color:var(--gold); font-weight:bold;">${n}</td><td>${(d['Avg Auto']||0).toFixed(1)}</td><td>${(d['Avg Teleop']||0).toFixed(1)}</td><td>${(d['Avg Endgame']||0).toFixed(1)}</td><td style="background:rgba(255,193,7,0.1)">${(d['Avg Total']||0).toFixed(1)}</td></tr>`;
             }).join('');
-        }
-
-        function renderAllianceChart(rD, bD) {
-            if (charts.comb) charts.comb.destroy();
-            const sum = (data, key) => data.reduce((s, t) => s + (parseFloat(t[key]) || 0), 0);
-            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
-                type: 'bar',
-                data: {
-                    labels: ['Red', 'Blue'],
-                    datasets: [
-                        { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
-                        { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
-                        { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
-            });
         }
 
         fetchData();
