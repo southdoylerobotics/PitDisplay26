@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3824 Pit Strategy & Video Dashboard</title>
+    <title>6517 Pit Strategy & Video Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     
@@ -77,7 +77,7 @@
     <div id="strategy-tab" class="dashboard-wrapper">
         <div class="header">
             <div>
-                <h1 style="margin:0; color:var(--gold); font-size:1.2rem;">3824 STRATEGY</h1>
+                <h1 style="margin:0; color:var(--gold); font-size:1.2rem;">6517 STRATEGY</h1>
                 <select id="match-selector" class="match-select" onchange="handleManualSelection()"></select>
                 <span id="status-text" style="font-size:0.7em; color:#777; margin-left:10px;">Syncing...</span>
             </div>
@@ -95,7 +95,7 @@
             <div>
                 <span>Field Match: <span id="field-match" style="color:var(--gold);">--</span></span>
                 <span style="margin: 0 10px; color: #444;">|</span>
-                <span>Next 3824 Match: <span id="target-match" style="color:var(--gold);">--</span></span>
+                <span>Next 6517 Match: <span id="target-match" style="color:var(--gold);">--</span></span>
                 <span id="bumper-color" style="margin-left: 15px; font-weight: 800; text-shadow: 1px 1px 2px black;"></span>
             </div>
             <div>MATCHES AWAY: <span id="matches-away">--</span></div>
@@ -143,7 +143,7 @@
 
     <div id="video-review-tab">
         <div class="video-controls">
-            <h2 style="margin-top: 0; color: var(--gold);">3824 MATCH REPLAY</h2>
+            <h2 style="margin-top: 0; color: var(--gold);">6517 MATCH REPLAY</h2>
             <label>Select Match to Review: </label>
             <select id="video-match-picker" class="match-select" onchange="updateVideoSources()" style="font-size: 1.2em; padding: 8px;">
                 <option>Loading matches...</option>
@@ -230,7 +230,7 @@
         }
 
         // --- YOUR ORIGINAL SCRIPT LOGIC (fetchData, Charts, etc.) ---
-        const TEAM_NUMBER = 3824;
+        const TEAM_NUMBER = 6517;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
         const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
@@ -284,7 +284,7 @@
                 currentFieldMatchNum = Number(rawFieldMatch) || 0;
             }
 
-            const matchesAway = Number(liveData[0]['Matches Until 3824']) || 0;
+            const matchesAway = Number(liveData[0]['Matches Until 6517']) || 0;
             const targetMatchNum = currentFieldMatchNum + matchesAway;
             
             // Format the target match display
