@@ -18,7 +18,7 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* New Alert Overlay Styles */
+        /* Pit Alert Overlay - Restored to your working version */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
@@ -32,7 +32,7 @@
         .alert-severity-tag { font-size: 4rem; padding: 10px 40px; border-radius: 15px; display: inline-block; margin-top: 20px; background: var(--alert-critical); color: white; }
         .alert-dismiss { margin-top: 40px; font-size: 2.5rem; padding: 20px 50px; cursor: pointer; background: white; border: none; font-weight: bold; border-radius: 10px; }
 
-        /* Existing Styles */
+        /* Dashboard Styles */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
         .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .tab-btn.active { background: var(--gold); color: black; }
@@ -42,24 +42,20 @@
         .win-prob-container { width: 300px; text-align: center; }
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
+        
         .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
         @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
-        .warning-content { text-align: center; }
-        .warning-content h1 { font-size: 6rem; margin: 0; color: #fff; }
-        .warning-btn { font-size: 3rem; font-weight: bold; padding: 30px 60px; border-radius: 15px; background: #fff; color: #d32f2f; border: none; cursor: pointer; }
+        
         .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
         .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .combined-card { grid-column: 1 / -1; } .red-card { border-left: 4px solid var(--red-alliance); } .blue-card { border-left: 4px solid var(--blue-alliance); }
-        h3 { flex: none; margin: 0 0 6px 0; font-size: 0.85rem; text-transform: uppercase; }
-        .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
-        .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
-        .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
-        .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; height: 100%; }
+        
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; }
         .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; color: #ccc; font-size: 0.8em; }
-        .data-table td { padding: 4px; border-bottom: 1px solid #333; }
         .badge-grid { flex: 0 0 115px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
         .death-grid { flex: 0 0 50px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
-        .citrus-badge, .death-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; text-align: center; }
+        .citrus-badge, .death-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; background: #1b5e20; }
+        .death-badge { background: #b71c1c; }
     </style>
 </head>
 <body>
@@ -75,17 +71,17 @@
         </div>
     </div>
 
+    <div id="full-screen-warning" class="warning-overlay" style="display: none;">
+        <div style="text-align: center;">
+            <h1 style="font-size: 6rem; margin: 0; color: white;">TIME TO QUEUE!</h1>
+            <h2 style="font-size: 3rem;">MATCHES AWAY: <span id="warning-matches-away">--</span></h2>
+            <button onclick="dismissWarning()" style="font-size: 3rem; padding: 20px 50px; border-radius: 10px; cursor: pointer; background: white; color: #d32f2f; border: none; font-weight: bold;">ON OUR WAY!</button>
+        </div>
+    </div>
+
     <div class="nav-tabs">
         <button class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
         <button class="tab-btn" onclick="switchTab('video')">MATCH VIDEO REVIEW</button>
-    </div>
-
-    <div id="full-screen-warning" class="warning-overlay" style="display: none;">
-        <div class="warning-content">
-            <h1>TIME TO QUEUE!</h1>
-            <h2>MATCHES AWAY: <span id="warning-matches-away">--</span></h2>
-            <button class="warning-btn" onclick="dismissWarning()">ON OUR WAY!</button>
-        </div>
     </div>
 
     <div id="strategy-tab" class="dashboard-wrapper">
@@ -96,58 +92,39 @@
                 <span id="status-text" style="font-size:0.7em; color:#777; margin-left:10px;">Syncing...</span>
             </div>
             <div class="win-prob-container">
-                <div style="display:flex; justify-content: space-between; font-weight:bold; font-size:0.8rem;">
-                    <span class="red-text">RED EPA: <span id="red-epa-val">0</span></span>
-                    <span class="blue-text">BLUE EPA: <span id="blue-epa-val">0</span></span>
-                </div>
                 <div class="prob-bar"><div id="red-fill" style="width:50%; background:var(--red-alliance); transition:1s;"></div><div id="blue-fill" style="width:50%; background:var(--blue-alliance); transition:1s;"></div></div>
-                <div style="display:flex; justify-content: space-between; font-size:0.8em;"><span id="red-prob-text">50%</span><span id="blue-prob-text">50%</span></div>
+                <div style="display:flex; justify-content: space-between; font-size:0.8em;"><span id="red-prob-text">-- EPA</span><span id="blue-prob-text">-- EPA</span></div>
             </div>
         </div>
 
         <div id="live-banner" class="live-banner">
-            <div>
-                <span>Field Match: <span id="field-match" style="color:var(--gold);">--</span></span>
-                <span style="margin: 0 10px; color: #444;">|</span>
-                <span>Next 6517 Match: <span id="target-match" style="color:var(--gold);">--</span></span>
-                <span id="bumper-color" style="margin-left: 15px; font-weight: 800; text-shadow: 1px 1px 2px black;"></span>
-            </div>
+            <div>Field Match: <span id="field-match" style="color:var(--gold);">--</span> | Next 6517: <span id="target-match" style="color:var(--gold);">--</span> <span id="bumper-color" style="margin-left:15px;"></span></div>
             <div>MATCHES AWAY: <span id="matches-away">--</span></div>
         </div>
 
         <div class="content-grid">
             <div class="card combined-card">
-                <h3>Alliance Combined Potential</h3>
-                <div style="display: flex; justify-content: space-around; width: 100%; margin-bottom: 4px;">
-                    <span class="red-text" style="font-size: 1.1rem; font-weight: bold; text-shadow: 1px 1px 2px black;">Red Est: <span id="red-total-potential">0</span></span>
-                    <span class="blue-text" style="font-size: 1.1rem; font-weight: bold; text-shadow: 1px 1px 2px black;">Blue Est: <span id="blue-total-potential">0</span></span>
-                </div>
+                <h3>Alliance Potential Breakdown</h3>
                 <div class="chart-container"><canvas id="combinedScoringChart"></canvas></div>
             </div>
-            
             <div class="card red-card">
-                <h3 class="red-text">Red Breakdown</h3>
-                <div class="table-container"><table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="red-table-body"></tbody></table></div>
+                <h3 class="red-text">Red Alliance</h3>
+                <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="red-table-body"></tbody></table>
             </div>
-            
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Breakdown</h3>
-                <div class="table-container"><table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="blue-table-body"></tbody></table></div>
+                <h3 class="blue-text">Blue Alliance</h3>
+                <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="blue-table-body"></tbody></table>
             </div>
-            
             <div class="card red-card">
-                <h3 class="red-text">Red Nav & Rank</h3>
                 <div class="bottom-row-content">
-                    <div class="chart-container"><canvas id="redNavChart"></canvas></div>
+                    <div class="chart-container" style="flex:1;"><canvas id="redNavChart"></canvas></div>
                     <div id="red-deaths" class="death-grid"></div>
                     <div id="red-citrus" class="badge-grid"></div>
                 </div>
             </div>
-            
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Nav & Rank</h3>
                 <div class="bottom-row-content">
-                    <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
+                    <div class="chart-container" style="flex:1;"><canvas id="blueNavChart"></canvas></div>
                     <div id="blue-deaths" class="death-grid"></div>
                     <div id="blue-citrus" class="badge-grid"></div>
                 </div>
@@ -156,167 +133,158 @@
     </div>
 
     <script>
-        // --- SETTINGS ---
         const TEAM_NUMBER = 6517;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
         const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
         const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
-        
-        // --- NEW ALERTS URL ---
-        const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv"; 
+        const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
 
-        let charts = {};
-        let teamDataCache = [];
-        let scheduleData = [];
-        let epaDataCache = [];
-        let rankingsDataCache = [];
-        let dismissedMatch = -1;
-        let lastAlertSeen = null; // Track the last Issue text to prevent re-popups
-        let userManuallySelected = false;
+        let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [], userManuallySelected = false, dismissedMatch = -1, lastAlertSeen = null;
 
         async function fetchData() {
             try {
+                const ts = `&t=${Date.now()}`;
                 const [avgRes, liveRes, tbaRes, epaRes, rankRes, alertRes] = await Promise.all([
-                    fetch(AVERAGES_URL), fetch(LIVE_EXPORT_URL), fetch(TBA_MATCHES_URL), fetch(STATBOTICS_URL), fetch(TBA_RANKINGS_URL), fetch(ALERTS_URL)
+                    fetch(AVERAGES_URL + ts), fetch(LIVE_EXPORT_URL + ts), fetch(TBA_MATCHES_URL + ts), fetch(STATBOTICS_URL + ts), fetch(TBA_RANKINGS_URL + ts), fetch(ALERTS_URL + ts)
                 ]);
-                
+
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 epaDataCache = Papa.parse(await epaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 rankingsDataCache = Papa.parse(await rankRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                
-                // Process New Pit Alerts
+                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const alertsData = Papa.parse(await alertRes.text(), { header: true, skipEmptyLines: true }).data;
-                if (alertsData.length > 0) {
-                    processPitAlerts(alertsData);
-                }
 
-                if (liveData.length > 0 && tbaData.length > 0) {
+                if (alertsData.length > 0) processPitAlerts(alertsData);
+                if (liveData.length && tbaData.length) {
                     processLiveSchedule(liveData, tbaData);
-                    document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
                     updateDashboard();
                 }
-            } catch (e) {
-                document.getElementById('status-text').innerText = "Sync Error!";
-                console.error(e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         function processPitAlerts(data) {
-            // Get the very last row added to the sheet
             const latestAlert = data[data.length - 1];
             const alertIdentifier = latestAlert['Issue'] + latestAlert['Match #'];
-
-            // Only trigger if this alert is different from the last one we saw
             if (lastAlertSeen !== alertIdentifier) {
                 lastAlertSeen = alertIdentifier;
-                
-                // Update UI
                 document.getElementById('alert-issue').innerText = latestAlert['Issue'];
                 document.getElementById('alert-match').innerText = latestAlert['Match #'];
-                
                 const sevNum = parseInt(latestAlert['Severity #']);
                 const sevLabel = latestAlert['Severity'];
                 const sevEl = document.getElementById('alert-severity');
-                
                 sevEl.innerText = `${sevLabel} (${sevNum})`;
-                
-                // Color code based on severity number
-                if (sevNum >= 4) {
-                    sevEl.style.background = "var(--alert-critical)";
-                } else {
-                    sevEl.style.background = "var(--alert-warning)";
-                }
-
-                // Show the overlay
+                sevEl.style.background = sevNum >= 4 ? "var(--alert-critical)" : "var(--alert-warning)";
                 document.getElementById('match-alert-overlay').style.display = "flex";
             }
         }
 
-        function dismissPitAlert() {
-            document.getElementById('match-alert-overlay').style.display = "none";
-        }
+        function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = "none"; }
 
-        // --- REST OF YOUR ORIGINAL FUNCTIONS (processLiveSchedule, renderCharts, etc.) ---
-        // (Keeping all your existing logic below for match syncing and display)
-        
         function processLiveSchedule(liveData, tbaData) {
-            const rawFieldMatch = String(liveData[0]['Current Match Number'] || '');
-            let currentFieldMatchNum = 0;
-            let fieldMatchDisplay = rawFieldMatch;
-            const numMatch = rawFieldMatch.match(/\d+/); 
-            if (numMatch) {
-                currentFieldMatchNum = Number(numMatch[0]);
-                if (rawFieldMatch.includes('_')) {
-                    fieldMatchDisplay = rawFieldMatch.split('_')[1].replace('Playoff', 'Playoff ');
-                }
-            } else {
-                currentFieldMatchNum = Number(rawFieldMatch) || 0;
-            }
+            const fieldMatch = String(liveData[0]['Current Match Number'] || '');
             const matchesAway = Number(liveData[0]['Matches Until 6517']) || 0;
-            const targetMatchNum = currentFieldMatchNum + matchesAway;
-            const isPlayoffs = rawFieldMatch.toLowerCase().includes('playoff');
-            const targetMatchDisplay = isPlayoffs ? `Playoff ${targetMatchNum}` : targetMatchNum;
+            const currentMatchNum = parseInt(fieldMatch.match(/\d+/) || [0]);
+            const targetMatchNum = currentMatchNum + matchesAway;
 
-            document.getElementById('field-match').innerText = fieldMatchDisplay;
-            document.getElementById('target-match').innerText = targetMatchDisplay;
+            document.getElementById('field-match').innerText = fieldMatch;
             document.getElementById('matches-away').innerText = matchesAway;
+            document.getElementById('target-match').innerText = targetMatchNum;
             document.getElementById('warning-matches-away').innerText = matchesAway;
 
-            scheduleData = tbaData.map(row => {
-                const getTeam = (col) => Number(String(row[col] || '').replace('frc', '').trim());
-                const compLevel = String(row['Comp Level'] || '').toUpperCase();
-                const matchNum = Number(row['Match Number']);
-                const uniqueId = compLevel === 'QM' ? matchNum : matchNum + 1000;
-                return {
-                    id: uniqueId, actualNum: matchNum, compLevel: compLevel,
-                    label: compLevel === 'QM' ? `Match ${matchNum}` : `Playoff ${matchNum}`,
-                    redTeams: [getTeam('Red 1'), getTeam('Red 2'), getTeam('Red 3')],
-                    blueTeams: [getTeam('Blue 1'), getTeam('Blue 2'), getTeam('Blue 3')]
-                };
-            }).filter(m => m.actualNum);
+            scheduleData = tbaData.map(row => ({
+                id: Number(row['Match Number']),
+                redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
+                blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
+            })).filter(m => m.id);
 
             const selector = document.getElementById('match-selector');
-            const previousVal = selector.value;
-            selector.innerHTML = '';
-            scheduleData.sort((a,b) => a.id - b.id).forEach(m => {
-                const opt = document.createElement('option');
-                opt.value = m.id; opt.innerText = m.label;
-                selector.appendChild(opt);
-            });
-
-            const calculatedMatch = scheduleData.find(m => m.actualNum === targetMatchNum && (isPlayoffs ? m.compLevel !== 'QM' : m.compLevel === 'QM'));
-            if (!userManuallySelected || !previousVal) { if (calculatedMatch) selector.value = calculatedMatch.id; }
-
-            const bumperSpan = document.getElementById('bumper-color');
-            if (calculatedMatch) {
-                if (calculatedMatch.redTeams.includes(TEAM_NUMBER)) {
-                    bumperSpan.innerText = "[ RED BUMPERS ]"; bumperSpan.style.color = "var(--red-alliance)";
-                } else if (calculatedMatch.blueTeams.includes(TEAM_NUMBER)) {
-                    bumperSpan.innerText = "[ BLUE BUMPERS ]"; bumperSpan.style.color = "var(--blue-alliance)";
-                } else { bumperSpan.innerText = ""; }
+            if (!userManuallySelected) {
+                selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
+                selector.value = targetMatchNum;
             }
-            const overlay = document.getElementById('full-screen-warning');
+
+            const currentMatch = scheduleData.find(m => m.id === targetMatchNum);
+            const bumper = document.getElementById('bumper-color');
+            if (currentMatch) {
+                if (currentMatch.redTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; }
+                else if (currentMatch.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
+            }
+
             if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetMatchNum) {
-                overlay.style.display = "flex";
-            } else { overlay.style.display = "none"; }
+                document.getElementById('full-screen-warning').style.display = "flex";
+            }
         }
 
-        // ... (Keep renderCharts, renderTables, updateDashboard as they were) ...
-        // Note: I've omitted the full repetition of chart rendering to keep this response clean, 
-        // but it should remain in your final script.
+        function updateDashboard() {
+            const matchId = document.getElementById('match-selector').value;
+            const match = scheduleData.find(m => m.id == matchId);
+            if (!match) return;
+
+            const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Avg Citrus":1};
+            const getRank = (n) => rankingsDataCache.find(t => Number(t['Team']) === n) || { Rank: '--' };
+            const getEPA = (n) => { const t = epaDataCache.find(x => Number(x['Team']) === n); return t ? Number(t['Total EPA']) : 0; };
+
+            const rD = match.redTeams.map(getT); const bD = match.blueTeams.map(getT);
+            const rEPA = match.redTeams.reduce((s, n) => s + getEPA(n), 0);
+            const bEPA = match.blueTeams.reduce((s, n) => s + getEPA(n), 0);
+
+            document.getElementById('red-fill').style.width = (rEPA / (rEPA + bEPA) * 100) + "%";
+            document.getElementById('blue-fill').style.width = (bEPA / (rEPA + bEPA) * 100) + "%";
+            document.getElementById('red-prob-text').innerText = rEPA.toFixed(1) + " EPA";
+            document.getElementById('blue-prob-text').innerText = bEPA.toFixed(1) + " EPA";
+
+            renderTable('red-table-body', match.redTeams, rD);
+            renderTable('blue-table-body', match.blueTeams, bD);
+            renderCharts(rD, bD, match.redTeams, match.blueTeams);
+            drawBadges(match.redTeams, 'red-citrus', 'red-deaths', getT, getRank);
+            drawBadges(match.blueTeams, 'blue-citrus', 'blue-deaths', getT, getRank);
+        }
+
+        function renderTable(id, teams, data) {
+            document.getElementById(id).innerHTML = teams.map((n, i) => {
+                const d = data[i];
+                return `<tr><td style="color:var(--gold); font-weight:bold;">${n}</td><td>${(d['Avg Auto']||0).toFixed(1)}</td><td>${(d['Avg Teleop']||0).toFixed(1)}</td><td>${(d['Avg Endgame']||0).toFixed(1)}</td><td>${(d['Avg Total']||0).toFixed(1)}</td></tr>`;
+            }).join('');
+        }
+
+        function renderCharts(rD, bD, rL, bL) {
+            if(charts.comb) charts.comb.destroy(); if(charts.rN) charts.rN.destroy(); if(charts.bN) charts.bN.destroy();
+            const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
+            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
+                type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
+                    { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
+                    { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
+                    { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
+                ]}, options: { responsive: true, maintainAspectRatio: false }
+            });
+            const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
+                type: 'bar', data: { labels: labs, datasets: [
+                    { label: 'Bump', data: dat.map(d => (parseFloat(d['Bump %']) || 0) * 100), backgroundColor: '#ef5350' },
+                    { label: 'Trench', data: dat.map(d => (parseFloat(d['Trench %']) || 0) * 100), backgroundColor: '#ab47bc' }
+                ]}, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { max: 100 }} }
+            });
+            charts.rN = nav('redNavChart', rL, rD); charts.bN = nav('blueNavChart', bL, bD);
+        }
+
+        function drawBadges(list, citrusId, deathsId, getT, getRank) {
+            const cEl = document.getElementById(citrusId); cEl.innerHTML = '';
+            const dEl = document.getElementById(deathsId); dEl.innerHTML = '';
+            list.forEach(n => {
+                const t = getT(n); const r = getRank(n);
+                cEl.innerHTML += `<div class="citrus-badge" style="font-size:0.75rem; color:white; margin-bottom:2px;">T-${n} | R:${r.Rank} | C:${parseFloat(t["Avg Citrus"]||1).toFixed(1)}</div>`;
+                dEl.innerHTML += `<div class="death-badge" style="font-size:0.75rem; color:white; margin-bottom:2px;">D:${parseInt(t["Total Times Died"])||0}</div>`;
+            });
+        }
 
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
-        function dismissWarning() {
-            dismissedMatch = Number(document.getElementById('target-match').innerText);
-            document.getElementById('full-screen-warning').style.display = "none";
-        }
+        function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
+        function switchTab(tab) { document.getElementById('strategy-tab').style.display = tab === 'strategy' ? 'flex' : 'none'; }
 
         fetchData();
-        setInterval(fetchData, 15000); // Increased refresh rate to 15s for alerts
+        setInterval(fetchData, 15000);
     </script>
 </body>
 </html>
