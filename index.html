@@ -9,73 +9,72 @@
 
     <style>
         :root {
-            --bg-color: #080808; 
-            --card-bg: #141414;
-            --gold: #ffc107; 
-            --text: #ffffff;
-            /* Severity Colors */
-            --sev-1: #0056b3; /* Blue */
-            --sev-2: #1e7e34; /* Green */
-            --sev-3: #d97706; /* Orange */
-            --sev-4: #bd2130; /* Red */
-            --sev-5: #000000; /* Black */
+            --bg-color: #080808; --card-bg: #141414;
+            --red-alliance: #ff4d4d; --blue-alliance: #4d94ff;
+            --gold: #ffc107; --text: #ffffff;
+            --alert-critical: #d32f2f;
         }
-
         * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
         /* --- PIT ALERT OVERLAY --- */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
-            border: 20px solid white; /* Default border */
-            transition: background-color 0.5s ease;
+            background: rgba(0,0,0,0.98); border: 20px solid var(--gold);
         }
-
         .alert-content { 
             width: 90%; max-height: 95vh; display: flex; flex-direction: column; align-items: center; text-align: center;
         }
         
-        .alert-header-label {
-            color: rgba(255,255,255,0.8); letter-spacing: 15px; margin: 0; font-weight: bold; font-size: 1.2rem;
-        }
-
-        /* ISSUE TEXT: Scalable and scrollable */
+        /* ISSUE TEXT: Scalable and scrollable for long paragraphs */
         #alert-issue-box {
-            width: 100%; max-height: 55vh; overflow-y: auto; margin: 20px 0; padding: 10px;
-            scrollbar-width: thin;
+            width: 100%; max-height: 50vh; overflow-y: auto; margin: 10px 0; padding: 10px;
         }
         #alert-issue-text {
-            font-size: clamp(2rem, 7vw, 9rem); font-weight: 900; color: white;
-            line-height: 1; text-transform: uppercase; word-wrap: break-word; overflow-wrap: anywhere;
-            text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
+            font-size: clamp(2.5rem, 6vw, 8rem); font-weight: 800; color: white;
+            line-height: 1.1; text-transform: uppercase; word-wrap: break-word; overflow-wrap: anywhere;
         }
 
-        /* SEVERITY BADGE: Simple but massive */
+        /* SEVERITY BADGE: Simple but very visible */
         .sev-badge {
-            background: white; color: black; padding: 10px 60px; border-radius: 100px;
-            font-size: 6rem; font-weight: 900; margin: 10px 0; display: inline-block;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            background: var(--gold); color: black; padding: 10px 40px; border-radius: 50px;
+            font-size: 5rem; font-weight: 900; margin: 20px 0; display: inline-block;
+            box-shadow: 0 0 30px rgba(255, 193, 7, 0.5);
         }
 
         .alert-dismiss { 
-            font-size: 2rem; padding: 15px 60px; cursor: pointer; background: white; 
+            font-size: 2.5rem; padding: 20px 80px; cursor: pointer; background: white; 
             color: black; border: none; font-weight: bold; border-radius: 10px; margin-top: 20px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
-        .alert-dismiss:active { transform: scale(0.95); }
 
-        /* --- DASHBOARD STYLES (Placeholder for your main UI) --- */
-        .dashboard-wrapper { padding: 20px; display: flex; flex-direction: column; height: 100%; }
-        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--gold); padding-bottom: 10px; }
-        #status-text { font-size: 0.8rem; color: #666; }
+        /* --- DASHBOARD STYLES --- */
+        .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
+        .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .tab-btn.active { background: var(--gold); color: black; }
+        .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
+        .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
+        .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
+        .win-prob-container { width: 300px; text-align: center; }
+        .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
+        .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
+        .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
+        .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .combined-card { grid-column: 1 / -1; } .red-card { border-left: 4px solid var(--red-alliance); } .blue-card { border-left: 4px solid var(--blue-alliance); }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; }
+        .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; font-size: 0.8em; }
+        .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
+        .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
+        .badge-grid { flex: 0 0 115px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
+        .death-grid { flex: 0 0 50px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
+        .citrus-badge, .death-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; text-align: center; }
     </style>
 </head>
 <body>
 
     <div id="match-alert-overlay" class="alert-overlay">
         <div class="alert-content">
-            <p class="alert-header-label">NEW PIT ALERT</p>
+            <p style="color: var(--gold); letter-spacing: 10px; margin: 0; font-weight: bold;">PIT ALERT</p>
             
             <div id="alert-issue-box">
                 <div id="alert-issue-text">LOADING ISSUE...</div>
@@ -87,30 +86,79 @@
         </div>
     </div>
 
-    <div class="dashboard-wrapper">
+    <div class="nav-tabs">
+        <button class="tab-btn active">STRATEGY DASHBOARD</button>
+    </div>
+
+    <div id="strategy-tab" class="dashboard-wrapper">
         <div class="header">
-            <h1 style="margin:0; color:var(--gold);">6517 STRATEGY</h1>
-            <div id="status-text">Syncing data...</div>
+            <div>
+                <h1 style="margin:0; color:var(--gold); font-size:1.2rem;">6517 PIT STRATEGY</h1>
+                <select id="match-selector" class="match-select" onchange="updateDashboard()"></select>
+                <span id="status-text" style="font-size:0.7em; color:#777; margin-left:10px;">Syncing...</span>
+            </div>
+            <div class="win-prob-container">
+                <div class="prob-bar"><div id="red-fill" style="width:50%; background:var(--red-alliance);"></div><div id="blue-fill" style="width:50%; background:var(--blue-alliance);"></div></div>
+            </div>
         </div>
-        <div style="margin-top: 20px; color: #444; font-style: italic;">
-            Main Dashboard active. Alerts will override this screen.
+
+        <div id="live-banner" class="live-banner">
+            <div>Field Match: <span id="field-match" style="color:var(--gold);">--</span> | Next 6517: <span id="target-match" style="color:var(--gold);">--</span></div>
+            <div>MATCHES AWAY: <span id="matches-away">--</span></div>
+        </div>
+
+        <div class="content-grid">
+            <div class="card combined-card">
+                <h3>Alliance Potential</h3>
+                <div class="chart-container"><canvas id="combinedScoringChart"></canvas></div>
+            </div>
+            <div class="card red-card">
+                <h3>Red Breakdown</h3>
+                <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="red-table-body"></tbody></table>
+            </div>
+            <div class="card blue-card">
+                <h3>Blue Breakdown</h3>
+                <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="blue-table-body"></tbody></table>
+            </div>
+            <div class="card red-card">
+                <div class="bottom-row-content">
+                    <div class="chart-container"><canvas id="redNavChart"></canvas></div>
+                    <div id="red-citrus" class="badge-grid"></div>
+                </div>
+            </div>
+            <div class="card blue-card">
+                <div class="bottom-row-content">
+                    <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
+                    <div id="blue-citrus" class="badge-grid"></div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=307525301&single=true&output=csv";
+        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         
+        let teamDataCache = [];
         let autoDismissTimer = null;
+
+        async function fetchData() {
+            try {
+                // Fetch basic averages
+                const avgRes = await fetch(AVERAGES_URL + `&t=${Date.now()}`);
+                teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                document.getElementById('status-text').innerText = "Updated: " + new Date().toLocaleTimeString();
+                
+                // Check Alerts
+                checkPitAlerts();
+            } catch (e) { console.error(e); }
+        }
 
         async function checkPitAlerts() {
             try {
-                // Cache-buster URL
                 const res = await fetch(ALERTS_URL + `&t=${Date.now()}`);
-                const csvText = await res.text();
-                const data = Papa.parse(csvText, { header: true, skipEmptyLines: true }).data;
+                const data = Papa.parse(await res.text(), { header: true, skipEmptyLines: true }).data;
                 
-                document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
-
                 if (data.length > 0) {
                     const latestRowIndex = data.length - 1;
                     const latestAlert = data[latestRowIndex];
@@ -122,47 +170,37 @@
                         triggerAlertUI(latestAlert, latestRowIndex);
                     }
                 }
-            } catch (err) { 
-                console.error("Alert Sync Error:", err); 
-            }
+            } catch (err) { console.error("Alert Error", err); }
         }
 
         function triggerAlertUI(alert, rowIndex) {
             const overlay = document.getElementById('match-alert-overlay');
             
-            // Only trigger if not already visible
+            // Only show if it's not already visible
             if (overlay.style.display === "flex") return;
 
-            const issue = alert['Issue'] || "NO DESCRIPTION PROVIDED";
-            const sevNum = String(alert['Severity #']).trim();
+            const issue = alert['Issue'] || "NO DESCRIPTION";
+            const sevNum = alert['Severity #'] || "!";
 
             document.getElementById('alert-issue-text').innerText = issue.toUpperCase();
             document.getElementById('alert-sev-badge').innerText = sevNum;
             
-            // MAP BACKGROUND COLORS
-            let bgColor = "var(--bg-color)";
-            let borderColor = "white";
-
-            switch(sevNum) {
-                case "1": bgColor = "var(--sev-1)"; break;
-                case "2": bgColor = "var(--sev-2)"; break;
-                case "3": bgColor = "var(--sev-3)"; break;
-                case "4": bgColor = "var(--sev-4)"; break;
-                case "5": 
-                    bgColor = "var(--sev-5)"; 
-                    borderColor = "var(--gold)"; // Black needs a gold border to pop
-                    break;
-                default: bgColor = "#333"; // Fallback
+            // Style based on Severity
+            if (parseInt(sevNum) >= 4) {
+                overlay.style.borderColor = "var(--alert-critical)";
+                document.getElementById('alert-sev-badge').style.background = "var(--alert-critical)";
+                document.getElementById('alert-sev-badge').style.color = "white";
+            } else {
+                overlay.style.borderColor = "var(--gold)";
+                document.getElementById('alert-sev-badge').style.background = "var(--gold)";
+                document.getElementById('alert-sev-badge').style.color = "black";
             }
 
-            overlay.style.backgroundColor = bgColor;
-            overlay.style.borderColor = borderColor;
-            
-            // Store index for LocalStorage memory
+            // Store the current row ID on the dismiss button
             overlay.dataset.rowIndex = rowIndex;
             overlay.style.display = "flex";
 
-            // AUTO-DISMISS AFTER 5 MINUTES
+            // AUTO-DISMISS AFTER 5 MINUTES (300,000 ms)
             clearTimeout(autoDismissTimer);
             autoDismissTimer = setTimeout(() => {
                 dismissPitAlert();
@@ -173,7 +211,7 @@
             const overlay = document.getElementById('match-alert-overlay');
             const rowIndex = overlay.dataset.rowIndex;
             
-            // Save to browser memory so it doesn't pop up again
+            // Save to browser memory so it doesn't reappear
             if (rowIndex !== undefined) {
                 localStorage.setItem('lastAckAlertRow', rowIndex);
             }
@@ -182,11 +220,14 @@
             clearTimeout(autoDismissTimer);
         }
 
-        // Check for alerts every 10 seconds
-        setInterval(checkPitAlerts, 10000);
-        
-        // Initial Check
-        checkPitAlerts();
+        // Basic placeholder for dashboard update (add your full charting logic here)
+        function updateDashboard() {
+            console.log("Dashboard Updated");
+        }
+
+        // Initialize
+        fetchData();
+        setInterval(fetchData, 10000); // Sync every 10 seconds
     </script>
 </body>
 </html>
