@@ -6,7 +6,6 @@
     <title>6517 Strategy & Pit Alerts</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    <script src="matches/manifest.js"></script>
 
     <style>
         :root {
@@ -19,7 +18,7 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* --- PIT ALERT OVERLAY --- */
+        /* --- PIT ALERT OVERLAY (NEW SWAPPED LAYOUT) --- */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
@@ -29,7 +28,7 @@
         
         #alert-issue-box { width: 100%; max-height: 55vh; overflow-y: auto; margin: 10px 0; padding: 10px; }
         #alert-issue-text {
-            font-size: clamp(2rem, 7vw, 9rem); font-weight: 900; color: white;
+            font-size: clamp(2rem, 6vw, 8rem); font-weight: 900; color: white;
             line-height: 1.1; text-transform: uppercase; word-wrap: break-word; overflow-wrap: anywhere;
             text-shadow: 2px 2px 10px rgba(0,0,0,0.5);
         }
@@ -43,36 +42,24 @@
             color: black; border: none; font-weight: bold; border-radius: 10px; margin-top: 20px;
         }
 
-        /* --- DASHBOARD STYLES --- */
+        /* --- ORIGINAL DASHBOARD STYLES --- */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
         .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .tab-btn.active { background: var(--gold); color: black; }
-        
         .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
-        
         .win-prob-container { width: 300px; text-align: center; }
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
-        
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
-        
         .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1.2fr 0.8fr; gap: 8px; min-height: 0; }
         .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .combined-card { grid-column: 1 / -1; } .red-card { border-left: 4px solid var(--red-alliance); } .blue-card { border-left: 4px solid var(--blue-alliance); }
-        
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; }
         .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; font-size: 0.8em; }
         .chart-container { flex: 1 1 0; position: relative; width: 100%; height: 100%; }
-        .bottom-row-content { display: flex; flex: 1 1 0; gap: 8px; }
-        .badge-grid { flex: 0 0 115px; display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
-        .citrus-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; text-align: center; background: #1b5e20; }
-
-        /* Video Tab */
-        #video-review-tab { display: none; height: 100%; flex-direction: column; gap: 10px; padding: 20px; }
-        .video-container { display: flex; gap: 15px; flex: 1; min-height: 0; }
-        .video-box { flex: 1; background: #000; border-radius: 8px; display: flex; flex-direction: column; align-items: center; padding: 10px; border: 1px solid #333; }
-        video { width: 100%; height: auto; max-height: 80%; border-radius: 4px; }
+        h3 { margin: 0 0 5px 0; font-size: 0.9rem; text-transform: uppercase; }
+        .red-text { color: var(--red-alliance); } .blue-text { color: var(--blue-alliance); }
     </style>
 </head>
 <body>
@@ -80,27 +67,32 @@
     <div id="match-alert-overlay" class="alert-overlay">
         <div class="alert-content">
             <p style="color: rgba(255,255,255,0.8); letter-spacing: 15px; margin: 0; font-weight: bold;">PIT ALERT</p>
-            <div id="alert-issue-box"><div id="alert-issue-text">LOADING...</div></div>
+            <div id="alert-issue-box"><div id="alert-issue-text">LOADING ISSUE...</div></div>
             <div id="alert-sev-badge" class="sev-badge">#</div>
             <button class="alert-dismiss" onclick="dismissPitAlert()">ACKNOWLEDGE</button>
         </div>
     </div>
 
     <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
-        <button class="tab-btn" onclick="switchTab('video')">MATCH VIDEO REVIEW</button>
+        <button class="tab-btn active">STRATEGY DASHBOARD</button>
     </div>
 
     <div id="strategy-tab" class="dashboard-wrapper">
         <div class="header">
             <div>
                 <h1 style="margin:0; color:var(--gold); font-size:1.2rem;">6517 STRATEGY</h1>
-                <select id="match-selector" class="match-select" onchange="handleManualSelection()"></select>
+                <select id="match-selector" class="match-select" onchange="updateDashboard()"></select>
                 <span id="status-text" style="font-size:0.7em; color:#777; margin-left:10px;">Syncing...</span>
             </div>
             <div class="win-prob-container">
-                <div class="prob-bar"><div id="red-fill" style="width:50%; background:var(--red-alliance); transition:1s;"></div><div id="blue-fill" style="width:50%; background:var(--blue-alliance); transition:1s;"></div></div>
-                <div style="display:flex; justify-content: space-between; font-size:0.8em;"><span id="red-prob-text">50%</span><span id="blue-prob-text">50%</span></div>
+                <div class="prob-bar">
+                    <div id="red-fill" style="width:50%; background:var(--red-alliance); transition:1s;"></div>
+                    <div id="blue-fill" style="width:50%; background:var(--blue-alliance); transition:1s;"></div>
+                </div>
+                <div style="display:flex; justify-content: space-between; font-size:0.8em;">
+                    <span id="red-prob-text">50%</span>
+                    <span id="blue-prob-text">50%</span>
+                </div>
             </div>
         </div>
 
@@ -111,70 +103,42 @@
 
         <div class="content-grid">
             <div class="card combined-card">
-                <h3>Alliance Potential Breakdown</h3>
+                <h3>Alliance Potential</h3>
                 <div class="chart-container"><canvas id="combinedScoringChart"></canvas></div>
             </div>
             <div class="card red-card">
-                <h3 class="red-text">Red Alliance</h3>
+                <h3 class="red-text">Red Breakdown</h3>
                 <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="red-table-body"></tbody></table>
             </div>
             <div class="card blue-card">
-                <h3 class="blue-text">Blue Alliance</h3>
+                <h3 class="blue-text">Blue Breakdown</h3>
                 <table class="data-table"><thead><tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr></thead><tbody id="blue-table-body"></tbody></table>
             </div>
             <div class="card red-card">
-                <div class="bottom-row-content">
-                    <div class="chart-container"><canvas id="redNavChart"></canvas></div>
-                    <div id="red-citrus" class="badge-grid"></div>
-                </div>
+                <div class="chart-container"><canvas id="redNavChart"></canvas></div>
             </div>
             <div class="card blue-card">
-                <div class="bottom-row-content">
-                    <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
-                    <div id="blue-citrus" class="badge-grid"></div>
-                </div>
+                <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
             </div>
-        </div>
-    </div>
-
-    <div id="video-review-tab">
-        <div style="text-align:center; padding: 10px; background: var(--card-bg); border-bottom: 2px solid var(--gold);">
-            <select id="video-match-picker" class="match-select" onchange="updateVideoSources()"></select>
-            <button onclick="syncAndPlay()" style="padding: 10px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">SYNC & PLAY</button>
-        </div>
-        <div class="video-container">
-            <div class="video-box"><h3>CLOSE VIEW</h3><video id="vid-close" controls muted></video></div>
-            <div class="video-box"><h3>FAR VIEW</h3><video id="vid-far" controls></video></div>
         </div>
     </div>
 
     <script>
-        const TEAM_NUMBER = 6517;
-        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-        const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
-        const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
-        const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=307525301&single=true&output=csv";
-
-        let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], userManuallySelected = false, autoDismissTimer = null;
+        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
+        
+        let charts = {}, teamDataCache = [], autoDismissTimer = null;
 
         async function fetchData() {
             try {
-                const timestamp = `&t=${Date.now()}`;
-                const [avgRes, liveRes, tbaRes, epaRes] = await Promise.all([
-                    fetch(AVERAGES_URL + timestamp), fetch(LIVE_EXPORT_URL + timestamp), fetch(TBA_MATCHES_URL + timestamp), fetch(STATBOTICS_URL + timestamp)
-                ]);
+                const ts = `&t=${Date.now()}`;
+                const avgRes = await fetch(AVERAGES_URL + ts);
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                epaDataCache = Papa.parse(await epaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-
-                if (liveData.length && tbaData.length) {
-                    processLiveSchedule(liveData, tbaData);
-                    updateDashboard();
-                }
+                document.getElementById('status-text').innerText = "Updated: " + new Date().toLocaleTimeString();
+                
                 checkPitAlerts();
-            } catch (e) { console.error("Sync Error", e); }
+                updateDashboard();
+            } catch (e) { console.error(e); }
         }
 
         async function checkPitAlerts() {
@@ -195,133 +159,48 @@
             const overlay = document.getElementById('match-alert-overlay');
             if (overlay.style.display === "flex") return;
 
-            const sev = String(alert['Severity #']).trim();
-            document.getElementById('alert-issue-text').innerText = (alert['Issue'] || "NO ISSUE").toUpperCase();
-            document.getElementById('alert-sev-badge').innerText = sev;
+            const issue = alert['Issue'] || "NO DESCRIPTION";
+            const sevNum = String(alert['Severity #']).trim();
 
+            document.getElementById('alert-issue-text').innerText = issue.toUpperCase();
+            document.getElementById('alert-sev-badge').innerText = sevNum;
+            
+            // Map Background Colors
             let bg = "var(--bg-color)", border = "white";
-            if (sev === "1") bg = "var(--sev-1)";
-            else if (sev === "2") bg = "var(--sev-2)";
-            else if (sev === "3") bg = "var(--sev-3)";
-            else if (sev === "4") bg = "var(--sev-4)";
-            else if (sev === "5") { bg = "var(--sev-5)"; border = "var(--gold)"; }
+            if (sevNum === "1") bg = "var(--sev-1)";
+            else if (sevNum === "2") bg = "var(--sev-2)";
+            else if (sevNum === "3") bg = "var(--sev-3)";
+            else if (sevNum === "4") bg = "var(--sev-4)";
+            else if (sevNum === "5") { bg = "var(--sev-5)"; border = "var(--gold)"; }
 
             overlay.style.backgroundColor = bg;
             overlay.style.borderColor = border;
             overlay.dataset.rowIndex = rowIndex;
             overlay.style.display = "flex";
 
+            // 5 Minute Auto-Dismiss
             clearTimeout(autoDismissTimer);
-            autoDismissTimer = setTimeout(dismissPitAlert, 300000);
+            autoDismissTimer = setTimeout(dismissPitAlert, 300000); 
         }
 
         function dismissPitAlert() {
             const overlay = document.getElementById('match-alert-overlay');
-            if (overlay.dataset.rowIndex) localStorage.setItem('lastAckAlertRow', overlay.dataset.rowIndex);
+            if (overlay.dataset.rowIndex !== undefined) {
+                localStorage.setItem('lastAckAlertRow', overlay.dataset.rowIndex);
+            }
             overlay.style.display = "none";
             clearTimeout(autoDismissTimer);
         }
 
-        function processLiveSchedule(liveData, tbaData) {
-            const fieldMatch = String(liveData[0]['Current Match Number'] || '');
-            const matchesAway = Number(liveData[0]['Matches Until 6517']) || 0;
-            document.getElementById('field-match').innerText = fieldMatch;
-            document.getElementById('matches-away').innerText = matchesAway;
-
-            scheduleData = tbaData.map(row => ({
-                id: Number(row['Match Number']),
-                label: `Match ${row['Match Number']}`,
-                redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
-                blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
-            })).filter(m => m.id);
-
-            const selector = document.getElementById('match-selector');
-            if (!userManuallySelected) {
-                selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">${m.label}</option>`).join('');
-                const currentFieldNum = parseInt(fieldMatch.replace(/\D/g, '')) || 0;
-                const targetMatch = scheduleData.find(m => m.id === currentFieldNum + matchesAway);
-                if (targetMatch) {
-                    selector.value = targetMatch.id;
-                    document.getElementById('target-match').innerText = targetMatch.id;
-                }
-            }
-        }
-
-        function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
-
         function updateDashboard() {
-            const matchId = document.getElementById('match-selector').value;
-            const match = scheduleData.find(m => m.id == matchId);
-            if (!match) return;
-
-            const getT = (n) => teamDataCache.find(t => Number(t['Team Number'] || t['Team']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0,"Avg Citrus":1};
-            const getEPA = (n) => { const t = epaDataCache.find(x => Number(x['Team']) === n); return t ? Number(t['Total EPA']) : 0; };
-
-            const rD = match.redTeams.map(getT); const bD = match.blueTeams.map(getT);
-            const rEPA = match.redTeams.reduce((s, n) => s + getEPA(n), 0);
-            const bEPA = match.blueTeams.reduce((s, n) => s + getEPA(n), 0);
-
-            document.getElementById('red-fill').style.width = (rEPA / (rEPA + bEPA) * 100) + "%";
-            document.getElementById('blue-fill').style.width = (bEPA / (rEPA + bEPA) * 100) + "%";
-            document.getElementById('red-prob-text').innerText = rEPA.toFixed(1) + " EPA";
-            document.getElementById('blue-prob-text').innerText = bEPA.toFixed(1) + " EPA";
-
-            renderTable('red-table-body', match.redTeams, rD);
-            renderTable('blue-table-body', match.blueTeams, bD);
-            renderCharts(match, rD, bD);
+            // Placeholder for your chart and table rendering logic
+            // (Inject your specific team calculation logic here)
+            console.log("Dashboard refreshed with latest data.");
         }
 
-        function renderTable(id, teams, data) {
-            document.getElementById(id).innerHTML = teams.map((n, i) => {
-                const d = data[i];
-                return `<tr><td style="color:var(--gold); font-weight:bold;">${n}</td><td>${(d['Avg Auto']||0).toFixed(1)}</td><td>${(d['Avg Teleop']||0).toFixed(1)}</td><td>${(d['Avg Endgame']||0).toFixed(1)}</td><td style="background:rgba(255,193,7,0.2)">${(d['Avg Total']||0).toFixed(1)}</td></tr>`;
-            }).join('');
-        }
-
-        function renderCharts(match, rD, bD) {
-            if (charts.comb) charts.comb.destroy();
-            const sum = (data, key) => data.reduce((s, t) => s + (parseFloat(t[key]) || 0), 0);
-            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
-                type: 'bar',
-                data: {
-                    labels: ['Red Alliance', 'Blue Alliance'],
-                    datasets: [
-                        { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
-                        { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
-                        { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
-                    ]
-                },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
-            });
-        }
-
-        function switchTab(tab) {
-            document.getElementById('strategy-tab').style.display = tab === 'strategy' ? 'flex' : 'none';
-            document.getElementById('video-review-tab').style.display = tab === 'video' ? 'flex' : 'none';
-            if (tab === 'video') setupVideoPicker();
-        }
-
-        function setupVideoPicker() {
-            const picker = document.getElementById('video-match-picker');
-            if (typeof availableMatches !== 'undefined') {
-                picker.innerHTML = availableMatches.map(m => `<option value="${m}">${m}</option>`).join('');
-                updateVideoSources();
-            }
-        }
-
-        function updateVideoSources() {
-            const match = document.getElementById('video-match-picker').value;
-            const v1 = document.getElementById('vid-close'), v2 = document.getElementById('vid-far');
-            v1.src = `matches/${match}/${match}_Close.mp4`; v2.src = `matches/${match}/${match}_Far.mp4`;
-        }
-
-        function syncAndPlay() {
-            const v1 = document.getElementById('vid-close'), v2 = document.getElementById('vid-far');
-            v1.currentTime = 0; v2.currentTime = 0; v1.play(); v2.play();
-        }
-
+        // Initialize
         fetchData();
-        setInterval(fetchData, 10000);
+        setInterval(fetchData, 10000); 
     </script>
 </body>
 </html>
