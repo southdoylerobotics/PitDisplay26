@@ -12,17 +12,16 @@
             --bg-color: #080808; --card-bg: #141414;
             --red-alliance: #ff4d4d; --blue-alliance: #4d94ff;
             --gold: #ffc107; --text: #ffffff;
-            --alert-critical: #d32f2f; --alert-warning: #ffa000;
         }
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* NEW PIT ALERT OVERLAY - CORRECTED LAYOUT & WRAP */
+        /* NEW PIT ALERT OVERLAY - FLAT BACKGROUND & RESIZED WHITE TEXT */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
-            flex-direction: column; text-align: center; background: rgba(0,0,0,0.95);
-            border: 20px solid var(--gold);
+            flex-direction: column; text-align: center;
+            /* Background is set dynamically via JS */
             padding: 20px;
         }
         .alert-content { 
@@ -33,51 +32,52 @@
             align-items: center;
             gap: 15px;
         }
-        .alert-title { font-size: 3rem; font-weight: 900; margin: 0; color: var(--gold); text-transform: uppercase; }
+        .alert-title { font-size: 2rem; font-weight: 900; margin: 0; color: white; text-transform: uppercase; }
         
         /* Subsystem display */
-        .alert-subsystem { font-size: 4.5rem; color: #aaa; text-transform: uppercase; font-weight: bold; margin: 0; }
+        .alert-subsystem { font-size: 3rem; color: white; text-transform: uppercase; font-weight: bold; margin: 0; }
         
         /* Severity display */
         .alert-severity-tag { 
-            font-size: 4rem; 
-            padding: 15px 60px; 
-            border-radius: 20px; 
+            font-size: 2.5rem; 
+            padding: 10px 40px; 
             display: inline-block; 
             margin: 10px 0; 
-            background: var(--alert-critical); 
             color: white; 
             font-weight: 900;
+            border: 3px solid white;
+            border-radius: 15px;
         }
 
-        /* Issue text - Fixed Wrapping and Positioning */
+        /* Issue text - Fits as one paragraph, no scrolling */
         .alert-issue { 
-            font-size: 5rem; 
+            font-size: 3.5rem; 
             font-weight: bold; 
             color: white; 
             line-height: 1.2;
             width: 100%;
-            /* Strict wrapping to prevent horizontal cutoff */
             white-space: normal;
             word-wrap: break-word;
             overflow-wrap: break-word;
             word-break: break-word;
-            /* Vertical bounds */
-            max-height: 40vh;
-            overflow-y: auto;
             margin: 15px 0;
             padding: 0 10px;
         }
         
         .alert-dismiss { 
             margin-top: 20px; 
-            font-size: 2.5rem; 
-            padding: 20px 50px; 
+            font-size: 1.5rem; 
+            padding: 15px 40px; 
             cursor: pointer; 
-            background: white; 
-            border: none; 
+            background: transparent; 
+            border: 3px solid white; 
             font-weight: bold; 
             border-radius: 10px; 
+            color: white;
+            transition: 0.2s;
+        }
+        .alert-dismiss:hover {
+            background: white;
             color: black;
         }
 
@@ -240,17 +240,24 @@
                 document.getElementById('alert-issue').innerText = latest['Issue'];
                 
                 const sev = parseInt(latest['Severity #']) || 0;
-                const sevEl = document.getElementById('alert-severity');
-                sevEl.innerText = `Severity: ${sev}`;
-                sevEl.style.background = sev >= 4 ? "var(--alert-critical)" : "var(--alert-warning)";
+                document.getElementById('alert-severity').innerText = `Severity: ${sev}`;
                 
-                document.getElementById('match-alert-overlay').style.display = "flex";
+                // Color Code Background Based on Severity
+                const overlay = document.getElementById('match-alert-overlay');
+                if (sev === 1) overlay.style.backgroundColor = "#2196F3"; // Blue
+                else if (sev === 2) overlay.style.backgroundColor = "#4CAF50"; // Green
+                else if (sev === 3) overlay.style.backgroundColor = "#FF9800"; // Orange
+                else if (sev === 4) overlay.style.backgroundColor = "#F44336"; // Red
+                else if (sev >= 5) overlay.style.backgroundColor = "#000000"; // Black
+                else overlay.style.backgroundColor = "#000000"; // Default
+                
+                overlay.style.display = "flex";
 
-                // 5 MINUTE AUTO-TIMEOUT (300,000 ms)
+                // 2.5 MINUTE AUTO-TIMEOUT (150,000 ms)
                 if(alertTimer) clearTimeout(alertTimer);
                 alertTimer = setTimeout(() => {
                     dismissPitAlert();
-                }, 300000); 
+                }, 150000); 
             }
         }
 
