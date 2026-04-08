@@ -16,70 +16,32 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* NEW PIT ALERT OVERLAY - FLAT BACKGROUND & RESIZED WHITE TEXT */
+        /* NEW PIT ALERT OVERLAY */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
             flex-direction: column; text-align: center;
-            /* Background is set dynamically via JS */
             padding: 20px;
         }
         .alert-content { 
-            width: 100%; 
-            max-width: 95vw; 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
+            width: 100%; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 15px;
         }
         .alert-title { font-size: 2rem; font-weight: 900; margin: 0; color: white; text-transform: uppercase; }
-        
-        /* Subsystem display */
         .alert-subsystem { font-size: 3rem; color: white; text-transform: uppercase; font-weight: bold; margin: 0; }
-        
-        /* Severity display */
         .alert-severity-tag { 
-            font-size: 2.5rem; 
-            padding: 10px 40px; 
-            display: inline-block; 
-            margin: 10px 0; 
-            color: white; 
-            font-weight: 900;
-            border: 3px solid white;
-            border-radius: 15px;
+            font-size: 2.5rem; padding: 10px 40px; display: inline-block; margin: 10px 0; 
+            color: white; font-weight: 900; border: 3px solid white; border-radius: 15px;
         }
-
-        /* Issue text - Fits as one paragraph, no scrolling */
         .alert-issue { 
-            font-size: 3.5rem; 
-            font-weight: bold; 
-            color: white; 
-            line-height: 1.2;
-            width: 100%;
-            white-space: normal;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            word-break: break-word;
-            margin: 15px 0;
-            padding: 0 10px;
+            font-size: 3.5rem; font-weight: bold; color: white; line-height: 1.2; width: 100%;
+            white-space: normal; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;
+            margin: 15px 0; padding: 0 10px;
         }
-        
         .alert-dismiss { 
-            margin-top: 20px; 
-            font-size: 1.5rem; 
-            padding: 15px 40px; 
-            cursor: pointer; 
-            background: transparent; 
-            border: 3px solid white; 
-            font-weight: bold; 
-            border-radius: 10px; 
-            color: white;
-            transition: 0.2s;
+            margin-top: 20px; font-size: 1.5rem; padding: 15px 40px; cursor: pointer; 
+            background: transparent; border: 3px solid white; font-weight: bold; border-radius: 10px; color: white; transition: 0.2s;
         }
-        .alert-dismiss:hover {
-            background: white;
-            color: black;
-        }
+        .alert-dismiss:hover { background: white; color: black; }
 
         /* Dashboard Wrapper & Original Styles */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
@@ -88,6 +50,8 @@
         .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
+        .test-audio-btn { background: #222; color: var(--gold); border: 1px solid var(--gold); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 15px; font-size: 0.8rem; transition: 0.2s;}
+        .test-audio-btn:hover { background: var(--gold); color: black; }
         .win-prob-container { width: 300px; text-align: center; }
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
@@ -134,10 +98,11 @@
 
     <div id="strategy-tab" class="dashboard-wrapper">
         <div class="header">
-            <div>
-                <h1 style="margin:0; color:var(--gold); font-size:1.2rem;">6517 STRATEGY</h1>
+            <div style="display: flex; align-items: center;">
+                <h1 style="margin:0; color:var(--gold); font-size:1.2rem; margin-right: 15px;">6517 STRATEGY</h1>
                 <select id="match-selector" class="match-select" onchange="handleManualSelection()"></select>
-                <span id="status-text" style="font-size:0.7em; color:#777; margin-left:10px;">Syncing...</span>
+                <button class="test-audio-btn" onclick="announceAlert()">Test Audio</button>
+                <span id="status-text" style="font-size:0.7em; color:#777; margin-left:15px;">Syncing...</span>
             </div>
             <div class="win-prob-container">
                 <div style="display:flex; justify-content: space-between; font-weight:bold; font-size:0.8rem;">
@@ -205,7 +170,10 @@
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
 
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
-        let dismissedMatch = -1, lastAlertSeen = null, userManuallySelected = false, alertTimer = null;
+        let dismissedMatch = -1, userManuallySelected = false, alertTimer = null;
+        
+        // Memory of seen alerts (prevents cycling and refreshing bugs)
+        let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
 
         // Fetch voices early
         if ('speechSynthesis' in window) {
@@ -240,8 +208,10 @@
                 const utterance = new SpeechSynthesisUtterance("New Match Alert");
                 const voices = window.speechSynthesis.getVoices();
                 
-                // Find a British or Australian voice
-                const preferredVoice = voices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.name.includes('UK') || v.name.includes('Australia'));
+                // Fallback Logic: Try British/Aussie -> Try Any English -> Try Computer's Default
+                const preferredVoice = voices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.name.includes('UK') || v.name.includes('Australia')) 
+                                       || voices.find(v => v.lang.startsWith('en')) 
+                                       || voices[0];
                 
                 if (preferredVoice) utterance.voice = preferredVoice;
                 
@@ -254,20 +224,29 @@
         }
 
         function processPitAlerts(data) {
+            if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
             
             const issueKey = Object.keys(latest).find(k => k.toLowerCase().includes('issue')) || 'Issue';
             const subKey = Object.keys(latest).find(k => k.toLowerCase().includes('subsystem')) || 'Subsystem';
             const sevKey = Object.keys(latest).find(k => k.toLowerCase().includes('severity')) || 'Severity #';
+            const timeKey = Object.keys(latest).find(k => k.toLowerCase().includes('timestamp') || k.toLowerCase().includes('time')) || '';
 
             const rawIssue = latest[issueKey] ? String(latest[issueKey]).trim() : "";
             const rawSub = latest[subKey] ? String(latest[subKey]).trim() : "GENERAL";
             const rawSev = latest[sevKey] ? String(latest[sevKey]).trim() : "";
+            const rawTime = timeKey && latest[timeKey] ? String(latest[timeKey]).trim() : "";
 
-            const alertID = rawIssue + rawSub + rawSev;
+            // Create a unique identifier for this exact row to prevent cycling
+            const alertID = rawTime + "|" + rawIssue + "|" + rawSub + "|" + rawSev;
 
-            if (lastAlertSeen !== alertID) {
-                lastAlertSeen = alertID;
+            // Only trigger if we haven't seen this specific alert ID before
+            if (!seenAlerts.includes(alertID)) {
+                
+                // Add to history and save to browser memory
+                seenAlerts.push(alertID);
+                if (seenAlerts.length > 50) seenAlerts.shift(); // Keep memory limit to last 50
+                localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
                 
                 const displayIssue = rawIssue === "" ? "ALL GOOD!" : rawIssue;
                 document.getElementById('alert-subsystem').innerText = rawSub || "GENERAL";
