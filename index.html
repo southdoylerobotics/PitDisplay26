@@ -43,6 +43,14 @@
         }
         .alert-dismiss:hover { background: white; color: black; }
 
+        /* Queue Warning */
+        .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
+        @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
+
+        /* Prep Warning */
+        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: prepFlash 2s infinite; background: rgba(255, 152, 0, 0.95); padding: 20px; }
+        @keyframes prepFlash { 0% { background-color: rgba(255, 140, 0, 0.95); } 50% { background-color: rgba(255, 165, 0, 0.95); } 100% { background-color: rgba(255, 140, 0, 0.95); } }
+
         /* Dashboard Wrapper & Original Styles */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
         .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
@@ -63,10 +71,6 @@
         .data-table td { padding: 4px; border-bottom: 1px solid #333; }
         .badge-grid, .death-grid { display: grid; grid-template-rows: repeat(3, 1fr); gap: 4px; }
         .citrus-badge, .death-badge { display: flex; justify-content: center; align-items: center; border-radius: 4px; font-weight: bold; padding: 2px; }
-        
-        /* Queue Warning */
-        .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
-        @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
     </style>
 </head>
 <body>
@@ -80,6 +84,14 @@
             </div>
             <div id="alert-issue" class="alert-issue">Issue Description</div>
             <button class="alert-dismiss" onclick="dismissPitAlert()">DISMISS / ACKNOWLEDGE</button>
+        </div>
+    </div>
+
+    <div id="prep-warning-overlay" class="prep-overlay" style="display: none;">
+        <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
+            <h1 style="font-size: 5rem; margin: 0; color: white;">PREP FOR MATCH</h1>
+            <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queing.</h2>
+            <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #ff9800; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
         </div>
     </div>
 
@@ -101,7 +113,7 @@
             <div style="display: flex; align-items: center;">
                 <h1 style="margin:0; color:var(--gold); font-size:1.2rem; margin-right: 15px;">6517 STRATEGY</h1>
                 <select id="match-selector" class="match-select" onchange="handleManualSelection()"></select>
-                <button class="test-audio-btn" onclick="announceAlert()">Test Audio</button>
+                <button class="test-audio-btn" onclick="announceAlert('Audio system is ready')">Test Audio</button>
                 <span id="status-text" style="font-size:0.7em; color:#777; margin-left:15px;">Syncing...</span>
             </div>
             <div class="win-prob-container">
@@ -170,7 +182,8 @@
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
 
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
-        let dismissedMatch = -1, userManuallySelected = false, alertTimer = null;
+        let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
+        let announcedQueueMatch = -1, announcedPrepMatch = -1;
         
         // Memory of seen alerts (prevents cycling and refreshing bugs)
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
@@ -203,12 +216,13 @@
             } catch (e) { console.error(e); }
         }
 
-        function announceAlert() {
+        function announceAlert(customText) {
             if ('speechSynthesis' in window) {
                 // Instantly clear any old/stuck audio queues so the speech fires exactly right now
                 window.speechSynthesis.cancel(); 
 
-                const utterance = new SpeechSynthesisUtterance("New Match Alert");
+                const textToSpeak = customText || "New Match Alert";
+                const utterance = new SpeechSynthesisUtterance(textToSpeak);
                 const voices = window.speechSynthesis.getVoices();
                 
                 // Fallback Logic: Try British/Aussie -> Try Any English -> Try Computer's Default
@@ -276,7 +290,7 @@
                 
                 overlay.style.display = "flex";
 
-                // Speak the alert!
+                // Speak the default pit alert!
                 announceAlert();
 
                 // 2.5 MINUTE AUTO-TIMEOUT (150,000 ms)
@@ -323,8 +337,24 @@
                 else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
             }
 
+            // NEW: PREP WARNING (3 Matches Away)
+            if (matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+                document.getElementById('prep-warning-overlay').style.display = "flex";
+                if (announcedPrepMatch !== targetNum) {
+                    announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
+                    announcedPrepMatch = targetNum;
+                }
+            } else {
+                document.getElementById('prep-warning-overlay').style.display = "none";
+            }
+
+            // QUEUE WARNING (0-2 Matches Away)
             if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
+                if (announcedQueueMatch !== targetNum) {
+                    announceAlert("Now Queueing");
+                    announcedQueueMatch = targetNum;
+                }
             } else {
                 document.getElementById('full-screen-warning').style.display = "none";
             }
@@ -398,10 +428,20 @@
         }
 
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
-        function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
+        
+        function dismissWarning() { 
+            dismissedMatch = parseInt(document.getElementById('target-match').innerText); 
+            document.getElementById('full-screen-warning').style.display = "none"; 
+        }
+
+        function dismissPrep() { 
+            dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); 
+            document.getElementById('prep-warning-overlay').style.display = "none"; 
+        }
+
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
-        // FAST POLLING: Now checks for data every 5 seconds (5000ms) instead of 15 seconds.
+        // FAST POLLING: Now checks for data every 5 seconds (5000ms)
         fetchData();
         setInterval(fetchData, 5000); 
     </script>
