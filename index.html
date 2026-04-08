@@ -207,6 +207,11 @@
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
         let dismissedMatch = -1, lastAlertSeen = null, userManuallySelected = false, alertTimer = null;
 
+        // Fetch voices early
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        }
+
         async function fetchData() {
             try {
                 const ts = `&t=${Date.now()}`;
@@ -230,37 +235,67 @@
             } catch (e) { console.error(e); }
         }
 
+        function announceAlert() {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance("New Match Alert");
+                const voices = window.speechSynthesis.getVoices();
+                
+                // Find a British or Australian voice
+                const preferredVoice = voices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.name.includes('UK') || v.name.includes('Australia'));
+                
+                if (preferredVoice) utterance.voice = preferredVoice;
+                
+                // Make the voice slower and calmer
+                utterance.rate = 0.85; 
+                utterance.pitch = 0.9;
+                
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
         function processPitAlerts(data) {
             const latest = data[data.length - 1];
             
-            // DYNAMIC KEY LOOKUP - Fixes whitespace and column naming issues from Sheets
             const issueKey = Object.keys(latest).find(k => k.toLowerCase().includes('issue')) || 'Issue';
             const subKey = Object.keys(latest).find(k => k.toLowerCase().includes('subsystem')) || 'Subsystem';
             const sevKey = Object.keys(latest).find(k => k.toLowerCase().includes('severity')) || 'Severity #';
 
-            const alertID = latest[issueKey] + latest[subKey];
+            const rawIssue = latest[issueKey] ? String(latest[issueKey]).trim() : "";
+            const rawSub = latest[subKey] ? String(latest[subKey]).trim() : "GENERAL";
+            const rawSev = latest[sevKey] ? String(latest[sevKey]).trim() : "";
+
+            const alertID = rawIssue + rawSub + rawSev;
 
             if (lastAlertSeen !== alertID) {
                 lastAlertSeen = alertID;
-                document.getElementById('alert-subsystem').innerText = latest[subKey] || "GENERAL";
-                document.getElementById('alert-issue').innerText = latest[issueKey] || "No issue description provided.";
                 
-                // Extra safety: extract just the numbers from the field incase text got mixed in
-                const sevMatch = String(latest[sevKey] || '').match(/\d+/);
-                const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
+                const displayIssue = rawIssue === "" ? "ALL GOOD!" : rawIssue;
+                document.getElementById('alert-subsystem').innerText = rawSub || "GENERAL";
+                document.getElementById('alert-issue').innerText = displayIssue;
                 
-                document.getElementById('alert-severity').innerText = `Severity: ${sev}`;
-                
-                // Color Code Background Based on Severity
                 const overlay = document.getElementById('match-alert-overlay');
-                if (sev === 1) overlay.style.backgroundColor = "#2196F3"; // Blue
-                else if (sev === 2) overlay.style.backgroundColor = "#4CAF50"; // Green
-                else if (sev === 3) overlay.style.backgroundColor = "#FF9800"; // Orange
-                else if (sev === 4) overlay.style.backgroundColor = "#F44336"; // Red
-                else if (sev >= 5) overlay.style.backgroundColor = "#000000"; // Black
-                else overlay.style.backgroundColor = "#000000"; // Default
+                const sevEl = document.getElementById('alert-severity');
+
+                if (rawSev === "") {
+                    sevEl.innerText = "Severity: N/A";
+                    overlay.style.backgroundColor = "#004d00"; // Deep Green for empty severity
+                } else {
+                    const sevMatch = rawSev.match(/\d+/);
+                    const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
+                    sevEl.innerText = `Severity: ${sev}`;
+                    
+                    if (sev === 1) overlay.style.backgroundColor = "#2196F3"; // Blue
+                    else if (sev === 2) overlay.style.backgroundColor = "#4CAF50"; // Standard Green
+                    else if (sev === 3) overlay.style.backgroundColor = "#FF9800"; // Orange
+                    else if (sev === 4) overlay.style.backgroundColor = "#F44336"; // Red
+                    else if (sev >= 5) overlay.style.backgroundColor = "#000000"; // Black
+                    else overlay.style.backgroundColor = "#000000"; // Default
+                }
                 
                 overlay.style.display = "flex";
+
+                // Speak the alert!
+                announceAlert();
 
                 // 2.5 MINUTE AUTO-TIMEOUT (150,000 ms)
                 if(alertTimer) clearTimeout(alertTimer);
