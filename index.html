@@ -232,14 +232,23 @@
 
         function processPitAlerts(data) {
             const latest = data[data.length - 1];
-            const alertID = latest['Issue'] + latest['Subsystem'];
+            
+            // DYNAMIC KEY LOOKUP - Fixes whitespace and column naming issues from Sheets
+            const issueKey = Object.keys(latest).find(k => k.toLowerCase().includes('issue')) || 'Issue';
+            const subKey = Object.keys(latest).find(k => k.toLowerCase().includes('subsystem')) || 'Subsystem';
+            const sevKey = Object.keys(latest).find(k => k.toLowerCase().includes('severity')) || 'Severity #';
+
+            const alertID = latest[issueKey] + latest[subKey];
 
             if (lastAlertSeen !== alertID) {
                 lastAlertSeen = alertID;
-                document.getElementById('alert-subsystem').innerText = latest['Subsystem'] || "GENERAL";
-                document.getElementById('alert-issue').innerText = latest['Issue'];
+                document.getElementById('alert-subsystem').innerText = latest[subKey] || "GENERAL";
+                document.getElementById('alert-issue').innerText = latest[issueKey] || "No issue description provided.";
                 
-                const sev = parseInt(latest['Severity #']) || 0;
+                // Extra safety: extract just the numbers from the field incase text got mixed in
+                const sevMatch = String(latest[sevKey] || '').match(/\d+/);
+                const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
+                
                 document.getElementById('alert-severity').innerText = `Severity: ${sev}`;
                 
                 // Color Code Background Based on Severity
