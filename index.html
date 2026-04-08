@@ -205,6 +205,9 @@
 
         function announceAlert() {
             if ('speechSynthesis' in window) {
+                // Instantly clear any old/stuck audio queues so the speech fires exactly right now
+                window.speechSynthesis.cancel(); 
+
                 const utterance = new SpeechSynthesisUtterance("New Match Alert");
                 const voices = window.speechSynthesis.getVoices();
                 
@@ -398,8 +401,9 @@
         function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
+        // FAST POLLING: Now checks for data every 5 seconds (5000ms) instead of 15 seconds.
         fetchData();
-        setInterval(fetchData, 15000);
+        setInterval(fetchData, 5000); 
     </script>
 </body>
 </html>
