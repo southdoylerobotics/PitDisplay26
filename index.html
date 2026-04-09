@@ -194,7 +194,6 @@
                     fetch(AVERAGES_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
                 ]);
                 
-                // PapaParse Config automatically strips invisible spaces from your column headers
                 const parseConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
 
                 teamDataCache = Papa.parse(await avgRes.text(), parseConfig).data;
@@ -231,7 +230,6 @@
             if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
             
-            // Fuzzy match column names just in case they change slightly
             const keys = Object.keys(latest);
             const issueKey = keys.find(k => k.toLowerCase().includes('issue')) || 'Issue';
             const subKey = keys.find(k => k.toLowerCase().includes('subsystem')) || 'Subsystem';
@@ -271,10 +269,12 @@
         function processLiveSchedule(nexus, tba) {
             let fieldMatchStr = '--', targetNumStr = '--', matchesAway = NaN, isRedAlliance = true;
 
-            // Fuzzy column locators 
             const keys = Object.keys(nexus[0] || {});
             const statusCol = keys.find(k => k.toLowerCase().includes('status')) || 'Nexus Status';
-            const matchCol = keys.find(k => k.toLowerCase().includes('match') || k.toLowerCase().includes('label')) || 'Match Key';
+            
+            // Smart Match Column Locator: Looks for "match", "label", "name", or defaults to the very first column (keys[0])
+            const matchCol = keys.find(k => k.toLowerCase().includes('match') || k.toLowerCase().includes('label') || k.toLowerCase().includes('name')) || keys[0];
+            
             const r1Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'red1') || 'Red 1';
             const r2Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'red2') || 'Red 2';
             const r3Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'red3') || 'Red 3';
@@ -282,15 +282,12 @@
             const b2Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'blue2') || 'Blue 2';
             const b3Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'blue3') || 'Blue 3';
 
-            // 1. SMART STATUS SEARCH
-            // Search for "on field" anywhere in the status string to catch "🚀 ON FIELD"
+            // SMART STATUS SEARCH
             let currentMatchIndex = nexus.findIndex(r => {
                 let s = String(r[statusCol] || '').toLowerCase();
                 return s.includes('on field');
             });
 
-            // If there's no match currently marked "On field" (e.g., between matches),
-            // find the first match in the list that is NOT marked "Finished" to act as our current match point.
             if (currentMatchIndex === -1) {
                 currentMatchIndex = nexus.findIndex(r => {
                     let s = String(r[statusCol] || '').toLowerCase();
@@ -301,19 +298,16 @@
             let effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0; 
             let currentMatchRow = nexus[effectiveCurrentIndex];
 
-            // 2. Find Next 6517 Match going top to bottom
             let nextTeamMatchIndex = -1;
             let nextTeamMatchRow = null;
 
             for (let i = 0; i < nexus.length; i++) {
                 const r = nexus[i];
-                // Safely extracts numbers even if data imports as "frc6517"
                 const extractNum = val => parseInt(String(val).replace(/\D/g, ''), 10);
                 const redTeams = [r[r1Col], r[r2Col], r[r3Col]].map(extractNum);
                 const blueTeams = [r[b1Col], r[b2Col], r[b3Col]].map(extractNum);
                 
                 if (redTeams.includes(TEAM_NUMBER) || blueTeams.includes(TEAM_NUMBER)) {
-                    // Only grab the match if it hasn't passed relative to the current live match
                     if (i >= effectiveCurrentIndex) {
                         nextTeamMatchIndex = i;
                         nextTeamMatchRow = r;
@@ -327,12 +321,12 @@
                 }
             }
 
-            // Safely extracts the true match number (Turns "2024txhou_qm15" into "15")
+            // *** AGGRESSIVE NUMBER EXTRACTION ***
+            // Strips out all words ("Quals", "Match", "Practice") and finds the LAST set of numbers in the cell.
             const extractSafeMatchNumber = (val) => {
                 if (!val) return null;
-                const parts = String(val).split('_'); 
-                const match = parts[parts.length - 1].match(/\d+/); 
-                return match ? match[0] : null;
+                const matches = String(val).match(/\d+/g); 
+                return matches ? matches[matches.length - 1] : null;
             };
 
             if (currentMatchRow) fieldMatchStr = extractSafeMatchNumber(currentMatchRow[matchCol]) || '--';
@@ -368,8 +362,6 @@
             }
 
             // POP-UP LOGIC
-            
-            // 3 Matches Away: Prep Screen (Bumpers & Battery)
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
                 const prepOverlay = document.getElementById('prep-warning-overlay');
                 prepOverlay.className = isRedAlliance ? 'prep-overlay red' : 'prep-overlay blue';
@@ -383,7 +375,6 @@
                 document.getElementById('prep-warning-overlay').style.display = "none"; 
             }
 
-            // 2 Matches Away: Queueing Screen
             if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
 
