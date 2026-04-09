@@ -43,7 +43,7 @@
         }
         .alert-dismiss:hover { background: white; color: black; }
 
-        /* Prep Warning */
+        /* Prep Warning - Animation can now be overridden via JS */
         .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: prepFlash 2s infinite; background: rgba(255, 152, 0, 0.95); padding: 20px; }
         @keyframes prepFlash { 0% { background-color: rgba(255, 140, 0, 0.95); } 50% { background-color: rgba(255, 165, 0, 0.95); } 100% { background-color: rgba(255, 140, 0, 0.95); } }
 
@@ -91,7 +91,7 @@
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <h1 style="font-size: 5rem; margin: 0; color: white;">PREP FOR MATCH</h1>
             <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queing.</h2>
-            <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #ff9800; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
+            <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #333; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
         </div>
     </div>
 
@@ -180,8 +180,6 @@
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
         const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
-        
-        // NEW NEXUS QUEUING SOURCE
         const NEXUS_QUEUING_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=995335638&single=true&output=csv";
 
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
@@ -211,7 +209,6 @@
 
                 if (alertsData.length > 0) processPitAlerts(alertsData);
                 
-                // Allow proceeding if we have either Nexus data or Live data, plus TBA data
                 if ((nexusData.length || liveData.length) && tbaData.length) {
                     processLiveSchedule(liveData, tbaData, nexusData);
                     updateDashboard();
@@ -293,28 +290,60 @@
         }
 
         function processLiveSchedule(live, tba, nexus) {
-            // Prioritize Nexus data for queuing if available, fallback to live export data just in case
-            const queueSource = (nexus && nexus.length > 0) ? nexus[0] : (live && live.length > 0 ? live[0] : null);
-            if (!queueSource) return;
-            
-            // Defensively grab keys to prevent whitespace typo bugs
-            const fieldMatchKey = Object.keys(queueSource).find(k => k.trim().includes('Current Match Number')) || 'Current Match Number';
-            const fieldMatch = String(queueSource[fieldMatchKey] || '');
-            
-            const matchAwayKey = Object.keys(queueSource).find(k => k.trim().includes('Matches Until 6517')) || 'Matches Until 6517';
-            const rawAway = queueSource[matchAwayKey];
-            
-            // Only convert to a number if it is definitively a number. Otherwise, leave it as NaN (Not a Number)
-            const matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
+            let fieldMatchStr = '--';
+            let targetNumStr = '--';
+            let matchesAway = NaN;
+            let isRedAlliance = true; 
 
-            const currentNum = parseInt(fieldMatch.match(/\d+/) || [0]);
-            const targetNum = currentNum + (!isNaN(matchesAway) ? matchesAway : 0);
+            if (nexus && nexus.length > 0) {
+                // 1. Find the index of the currently active match (first match NOT played/completed)
+                const currentMatchIndex = nexus.findIndex(r => {
+                    const status = String(r['Nexus Status'] || '').toLowerCase();
+                    return status.includes('active') || status.includes('in progress') || (!status.includes('completed') && !status.includes('played'));
+                });
+                
+                const effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0;
+                const currentMatchRow = nexus[effectiveCurrentIndex];
+                
+                // 2. Scan downward from the current match to find our next match
+                let nextTeamMatchIndex = -1;
+                let nextTeamMatchRow = null;
+                
+                for (let i = effectiveCurrentIndex; i < nexus.length; i++) {
+                    const r = nexus[i];
+                    const hasTeam = [r['Red 1'], r['Red 2'], r['Red 3'], r['Blue 1'], r['Blue 2'], r['Blue 3']].map(Number).includes(TEAM_NUMBER);
+                    if (hasTeam) {
+                        nextTeamMatchIndex = i;
+                        nextTeamMatchRow = r;
+                        break;
+                    }
+                }
 
-            document.getElementById('field-match').innerText = fieldMatch || '--';
-            document.getElementById('target-match').innerText = targetNum || '--';
+                // 3. Extract the clean numbers to display on the dashboard (e.g., "qm15" -> 15)
+                const cMatchStrMatch = currentMatchRow ? String(currentMatchRow['Match Key'] || '').match(/\d+/) : null;
+                if (cMatchStrMatch) fieldMatchStr = parseInt(cMatchStrMatch[0]).toString();
+
+                if (nextTeamMatchRow) {
+                    const tMatchStrMatch = String(nextTeamMatchRow['Match Key'] || '').match(/\d+/);
+                    if (tMatchStrMatch) targetNumStr = parseInt(tMatchStrMatch[0]).toString();
+                    
+                    // Count how many literal matches are between the current match and our next match
+                    matchesAway = nextTeamMatchIndex - effectiveCurrentIndex;
+                    
+                    // Determine which alliance we are on for flat background coloring
+                    const isRed = [nextTeamMatchRow['Red 1'], nextTeamMatchRow['Red 2'], nextTeamMatchRow['Red 3']].map(Number).includes(TEAM_NUMBER);
+                    isRedAlliance = isRed;
+                }
+            }
+
+            const targetNum = parseInt(targetNumStr);
+
+            document.getElementById('field-match').innerText = fieldMatchStr;
+            document.getElementById('target-match').innerText = targetNumStr;
             document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
             document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
 
+            // Keep populating the dropdown matching TBA data for strategy tab
             scheduleData = tba.map(row => ({
                 id: Number(row['Match Number']),
                 redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
@@ -335,9 +364,13 @@
                 else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
             }
 
-            // PREP WARNING (Only triggers if matchesAway is an actual number AND equals 3)
+            // PREP WARNING (Triggered at 3 Matches Away)
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
-                document.getElementById('prep-warning-overlay').style.display = "flex";
+                const prepOverlay = document.getElementById('prep-warning-overlay');
+                prepOverlay.style.display = "flex";
+                prepOverlay.style.animation = "none"; // Disables flashing
+                prepOverlay.style.backgroundColor = isRedAlliance ? "rgba(211, 47, 47, 0.98)" : "rgba(25, 118, 210, 0.98)"; // Flat Alliance Color
+                
                 if (announcedPrepMatch !== targetNum) {
                     announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
                     announcedPrepMatch = targetNum;
@@ -346,7 +379,7 @@
                 document.getElementById('prep-warning-overlay').style.display = "none";
             }
 
-            // QUEUE WARNING (Only triggers if matchesAway is an actual number AND is 0, 1, or 2)
+            // QUEUE WARNING (Triggered at 0, 1, or 2 Matches Away)
             if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
                 if (announcedQueueMatch !== targetNum) {
@@ -425,6 +458,8 @@
             });
         }
 
+        function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = "none"; }
+        
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
         
         function dismissWarning() { 
