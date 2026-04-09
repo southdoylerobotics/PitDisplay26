@@ -296,10 +296,11 @@
             let isRedAlliance = true; 
 
             if (nexus && nexus.length > 0) {
-                // 1. Find the index of the currently active match (first match NOT played/completed)
+                // 1. Find the index of the currently active match based on NEW status inputs
+                // We assume the "current" match is the very first one that is NOT labeled "Finished"
                 const currentMatchIndex = nexus.findIndex(r => {
-                    const status = String(r['Nexus Status'] || '').toLowerCase();
-                    return status.includes('active') || status.includes('in progress') || (!status.includes('completed') && !status.includes('played'));
+                    const status = String(r['Nexus Status'] || '').toLowerCase().trim();
+                    return !status.includes('finished') && status !== '';
                 });
                 
                 const effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0;
