@@ -16,41 +16,25 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* NEW PIT ALERT OVERLAY */
+        /* ALERT OVERLAYS */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
-            flex-direction: column; text-align: center;
-            padding: 20px;
+            flex-direction: column; text-align: center; padding: 20px;
         }
-        .alert-content { 
-            width: 100%; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 15px;
-        }
+        .alert-content { width: 100%; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 15px; }
         .alert-title { font-size: 2rem; font-weight: 900; margin: 0; color: white; text-transform: uppercase; }
         .alert-subsystem { font-size: 3rem; color: white; text-transform: uppercase; font-weight: bold; margin: 0; }
-        .alert-severity-tag { 
-            font-size: 2.5rem; padding: 10px 40px; display: inline-block; margin: 10px 0; 
-            color: white; font-weight: 900; border: 3px solid white; border-radius: 15px;
-        }
-        .alert-issue { 
-            font-size: 3.5rem; font-weight: bold; color: white; line-height: 1.2; width: 100%;
-            white-space: normal; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;
-            margin: 15px 0; padding: 0 10px;
-        }
-        .alert-dismiss { 
-            margin-top: 20px; font-size: 1.5rem; padding: 15px 40px; cursor: pointer; 
-            background: transparent; border: 3px solid white; font-weight: bold; border-radius: 10px; color: white; transition: 0.2s;
-        }
+        .alert-severity-tag { font-size: 2.5rem; padding: 10px 40px; display: inline-block; margin: 10px 0; color: white; font-weight: 900; border: 3px solid white; border-radius: 15px; }
+        .alert-issue { font-size: 3.5rem; font-weight: bold; color: white; line-height: 1.2; width: 100%; white-space: normal; word-wrap: break-word; word-break: break-word; margin: 15px 0; padding: 0 10px; }
+        .alert-dismiss { margin-top: 20px; font-size: 1.5rem; padding: 15px 40px; cursor: pointer; background: transparent; border: 3px solid white; font-weight: bold; border-radius: 10px; color: white; transition: 0.2s; }
         .alert-dismiss:hover { background: white; color: black; }
 
-        /* Prep Warning */
-        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; background: rgba(255, 152, 0, 0.95); padding: 20px; }
-
-        /* Queue Warning */
+        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; padding: 20px; }
         .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
         @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
 
-        /* Dashboard Wrapper & Original Styles */
+        /* DASHBOARD LAYOUT */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
         .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .tab-btn.active { background: var(--gold); color: black; }
@@ -78,9 +62,7 @@
         <div class="alert-content">
             <p class="alert-title">New Pit Alert</p>
             <div id="alert-subsystem" class="alert-subsystem">SUBSYSTEM</div>
-            <div>
-                <div id="alert-severity" class="alert-severity-tag">Severity: 0</div>
-            </div>
+            <div><div id="alert-severity" class="alert-severity-tag">Severity: 0</div></div>
             <div id="alert-issue" class="alert-issue">Issue Description</div>
             <button class="alert-dismiss" onclick="dismissPitAlert()">DISMISS / ACKNOWLEDGE</button>
         </div>
@@ -89,7 +71,7 @@
     <div id="prep-warning-overlay" class="prep-overlay" style="display: none;">
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <h1 style="font-size: 5rem; margin: 0; color: white;">PREP FOR MATCH</h1>
-            <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queing.</h2>
+            <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queueing.</h2>
             <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #ff9800; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
         </div>
     </div>
@@ -111,7 +93,7 @@
             <div style="display: flex; align-items: center;">
                 <h1 style="margin:0; color:var(--gold); font-size:1.2rem; margin-right: 15px;">6517 STRATEGY</h1>
                 <select id="match-selector" class="match-select" onchange="handleManualSelection()"></select>
-                <button class="test-audio-btn" onclick="announceAlert('Audio system is ready')">Test Audio</button>
+                <button class="test-audio-btn" onclick="announceAlert('Audio system ready')">Test Audio</button>
                 <span id="status-text" style="font-size:0.7em; color:#777; margin-left:15px;">Syncing...</span>
             </div>
             <div class="win-prob-container">
@@ -172,230 +154,135 @@
 
     <script>
         const TEAM_NUMBER = 6517;
-        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
+        
+        // URLS
+        const NEXUS_QUEUING_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=995335638&single=true&output=csv";
         const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
-        const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
+        const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
-        const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
 
-        let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
+        let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [];
         let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
         let announcedQueueMatch = -1, announcedPrepMatch = -1;
-        
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
-
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-        }
 
         async function fetchData() {
             try {
                 const ts = `&t=${Date.now()}`;
-                const [avgRes, liveRes, tbaRes, epaRes, rankRes, alertRes] = await Promise.all([
-                    fetch(AVERAGES_URL+ts), fetch(LIVE_EXPORT_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts)
+                const [avgRes, nexusRes, liveRes, epaRes, alertRes] = await Promise.all([
+                    fetch(AVERAGES_URL+ts), fetch(NEXUS_QUEUING_URL+ts), fetch(LIVE_EXPORT_URL+ts), fetch(STATBOTICS_URL+ts), fetch(ALERTS_URL+ts)
                 ]);
                 
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 epaDataCache = Papa.parse(await epaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                rankingsDataCache = Papa.parse(await rankRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const nexusData = Papa.parse(await nexusRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const alertsData = Papa.parse(await alertRes.text(), { header: true, skipEmptyLines: true }).data;
 
                 if (alertsData.length > 0) processPitAlerts(alertsData);
-                if (liveData.length && tbaData.length) {
-                    processLiveSchedule(liveData, tbaData);
-                    updateDashboard();
-                    document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
-                }
-            } catch (e) { console.error(e); }
+                
+                // Process Schedule from Nexus
+                processNexusSchedule(nexusData);
+                
+                // Process Live Info from Live_Export (Row 2)
+                if (liveData.length > 0) processLiveExport(liveData);
+
+                updateDashboard();
+                document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+            } catch (e) { console.error("Fetch Error:", e); }
         }
 
-        function announceAlert(customText) {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel(); 
+        function processNexusSchedule(data) {
+            // Converts Nexus Queuing sheet into a standardized schedule
+            scheduleData = data.map(row => {
+                const matchNum = row['Match'] || row['Match Number'] || row['Match #'];
+                return {
+                    id: parseInt(String(matchNum).replace(/\D/g, '')),
+                    redTeams: [parseInt(row['Red 1']), parseInt(row['Red 2']), parseInt(row['Red 3'])],
+                    blueTeams: [parseInt(row['Blue 1']), parseInt(row['Blue 2']), parseInt(row['Blue 3'])]
+                };
+            }).filter(m => !isNaN(m.id));
 
-                const textToSpeak = customText || "New Match Alert";
-                const utterance = new SpeechSynthesisUtterance(textToSpeak);
-                const voices = window.speechSynthesis.getVoices();
-                
-                const preferredVoice = voices.find(v => (v.lang === 'en-GB' || v.name.includes('UK')) && 
-                                                        (v.name.includes('Female') || v.name.includes('Hazel') || v.name.includes('Sonia') || v.name.includes('Kate'))) 
-                                       || voices.find(v => v.lang === 'en-GB') 
-                                       || voices.find(v => v.lang.startsWith('en')) 
-                                       || voices[0];
-                
-                if (preferredVoice) utterance.voice = preferredVoice;
-                
-                utterance.rate = 0.85; 
-                utterance.pitch = 1.0; 
-                
-                window.speechSynthesis.speak(utterance);
+            // Populate the dropdown if not manual
+            const selector = document.getElementById('match-selector');
+            const currentVal = selector.value;
+            if (!userManuallySelected || !currentVal) {
+                const options = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
+                selector.innerHTML = options;
             }
         }
 
-        function processPitAlerts(data) {
-            if (!data || data.length === 0) return;
-            const latest = data[data.length - 1];
+        function processLiveExport(live) {
+            const row2 = live[0]; // PapaParse header:true makes Row 2 index 0
             
-            const issueKey = Object.keys(latest).find(k => k.toLowerCase().includes('issue')) || 'Issue';
-            const subKey = Object.keys(latest).find(k => k.toLowerCase().includes('subsystem')) || 'Subsystem';
-            const sevKey = Object.keys(latest).find(k => k.toLowerCase().includes('severity')) || 'Severity #';
-            const timeKey = Object.keys(latest).find(k => k.toLowerCase().includes('timestamp') || k.toLowerCase().includes('time')) || '';
+            // Fuzzy Key Finder
+            const getVal = (search) => {
+                const key = Object.keys(row2).find(k => k.toLowerCase().trim().includes(search.toLowerCase()));
+                return key ? row2[key] : null;
+            };
 
-            const rawIssue = latest[issueKey] ? String(latest[issueKey]).trim() : "";
-            const rawSub = latest[subKey] ? String(latest[subKey]).trim() : "GENERAL";
-            const rawSev = latest[sevKey] ? String(latest[sevKey]).trim() : "";
-            const rawTime = timeKey && latest[timeKey] ? String(latest[timeKey]).trim() : "";
+            const rawField = String(getVal('Match ID') || '');
+            const rawTarget = String(getVal('Next 6517 Match') || '');
+            const rawAway = getVal('Matches Until 6517');
 
-            const alertID = rawTime + "|" + rawIssue + "|" + rawSub + "|" + rawSev;
+            const currentNum = parseInt(rawField.replace(/\D/g, '')) || 0;
+            const targetNum = parseInt(rawTarget.replace(/\D/g, '')) || 0;
+            const matchesAway = (rawAway !== "" && rawAway !== null) ? Number(rawAway) : NaN;
 
-            if (!seenAlerts.includes(alertID)) {
-                seenAlerts.push(alertID);
-                if (seenAlerts.length > 50) seenAlerts.shift(); 
-                localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
-                
-                const displayIssue = rawIssue === "" ? "ALL GOOD!" : rawIssue;
-                document.getElementById('alert-subsystem').innerText = rawSub || "GENERAL";
-                document.getElementById('alert-issue').innerText = displayIssue;
-                
-                const overlay = document.getElementById('match-alert-overlay');
-                const sevEl = document.getElementById('alert-severity');
+            // UI Labels
+            document.getElementById('field-match').innerText = currentNum || '--';
+            document.getElementById('target-match').innerText = targetNum || '--';
+            document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
+            document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
 
-                if (rawSev === "") {
-                    sevEl.innerText = "Severity: N/A";
-                    overlay.style.backgroundColor = "#004d00";
-                } else {
-                    const sevMatch = rawSev.match(/\d+/);
-                    const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
-                    sevEl.innerText = `Severity: ${sev}`;
-                    
-                    if (sev === 1) overlay.style.backgroundColor = "#2196F3"; 
-                    else if (sev === 2) overlay.style.backgroundColor = "#4CAF50"; 
-                    else if (sev === 3) overlay.style.backgroundColor = "#FF9800"; 
-                    else if (sev === 4) overlay.style.backgroundColor = "#F44336"; 
-                    else if (sev >= 5) overlay.style.backgroundColor = "#000000"; 
-                    else overlay.style.backgroundColor = "#000000"; 
-                }
-                
-                overlay.style.display = "flex";
-                announceAlert();
-
-                if(alertTimer) clearTimeout(alertTimer);
-                alertTimer = setTimeout(() => { dismissPitAlert(); }, 150000); 
+            // Automatic Dropdown Follow
+            if (!userManuallySelected && targetNum) {
+                document.getElementById('match-selector').value = targetNum;
             }
+
+            // Bumper Color Logic
+            const match = scheduleData.find(m => m.id === targetNum);
+            const bumper = document.getElementById('bumper-color');
+            const prepOverlay = document.getElementById('prep-warning-overlay');
+
+            if (match) {
+                if (match.redTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[RED]"; 
+                    bumper.style.color = "var(--red-alliance)"; 
+                    prepOverlay.style.background = "rgba(211, 47, 47, 0.95)";
+                } else if (match.blueTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[BLUE]"; 
+                    bumper.style.color = "var(--blue-alliance)"; 
+                    prepOverlay.style.background = "rgba(25, 118, 210, 0.95)";
+                }
+            }
+
+            // Overlay Triggers
+            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+                prepOverlay.style.display = "flex";
+                if (announcedPrepMatch !== targetNum) {
+                    announceAlert("Prep for match. Bumpers and battery.");
+                    announcedPrepMatch = targetNum;
+                }
+            } else { prepOverlay.style.display = "none"; }
+
+            if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
+                document.getElementById('full-screen-warning').style.display = "flex";
+                if (announcedQueueMatch !== targetNum) {
+                    announceAlert("Time to queue.");
+                    announcedQueueMatch = targetNum;
+                }
+            } else { document.getElementById('full-screen-warning').style.display = "none"; }
         }
 
-        function processLiveSchedule(live, tba) {
-    if (!live || !live[0]) {
-        console.warn("No data found in the Live_Export sheet.");
-        return;
-    }
-
-    // Helper to find a key even if it has weird spaces or casing
-    const findKey = (search) => {
-        return Object.keys(live[0]).find(key => 
-            key.toLowerCase().trim().includes(search.toLowerCase())
-        );
-    };
-
-    // Find the actual keys from your sheet
-    const matchIdKey = findKey('Match ID');
-    const nextMatchKey = findKey('Next 6517 Match');
-    const awayKey = findKey('Matches Until 6517');
-
-    // Debugging: This will show up in your Browser Console (F12)
-    console.log("Detected Keys:", { matchIdKey, nextMatchKey, awayKey });
-    console.log("Row 2 Data:", live[0]);
-
-    // 1. Field Match
-    let currentNum = 0;
-    if (matchIdKey) {
-        const rawFieldMatch = String(live[0][matchIdKey] || '');
-        const fieldMatchMatch = rawFieldMatch.match(/\d+/);
-        currentNum = fieldMatchMatch ? parseInt(fieldMatchMatch[0], 10) : 0;
-    }
-
-    // 2. Next 6517 Match
-    let targetNum = 0;
-    if (nextMatchKey) {
-        const rawTargetNum = String(live[0][nextMatchKey] || '');
-        const targetMatchMatch = rawTargetNum.match(/\d+/);
-        targetNum = targetMatchMatch ? parseInt(targetMatchMatch[0], 10) : 0;
-    }
-
-    // 3. Matches Away
-    let matchesAway = NaN;
-    if (awayKey) {
-        const rawAway = live[0][awayKey];
-        matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
-    }
-
-    // Update the UI
-    document.getElementById('field-match').innerText = currentNum || '--';
-    document.getElementById('target-match').innerText = targetNum || '--';
-    document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
-    document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
-
-    // ... (rest of the schedule/bumper logic remains the same)
-    scheduleData = tba.map(row => ({
-        id: Number(row['Match Number']),
-        redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
-        blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
-    })).filter(m => m.id);
-
-    const selector = document.getElementById('match-selector');
-    if (!userManuallySelected || !selector.value) {
-        selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
-        if(targetNum) selector.value = targetNum;
-    }
-
-    const match = scheduleData.find(m => m.id === targetNum);
-    const bumper = document.getElementById('bumper-color');
-    const prepOverlay = document.getElementById('prep-warning-overlay');
-
-    if (match) {
-        if (match.redTeams.includes(TEAM_NUMBER)) { 
-            bumper.innerText = "[RED]"; 
-            bumper.style.color = "var(--red-alliance)"; 
-            prepOverlay.style.background = "rgba(211, 47, 47, 0.95)";
-        } else if (match.blueTeams.includes(TEAM_NUMBER)) { 
-            bumper.innerText = "[BLUE]"; 
-            bumper.style.color = "var(--blue-alliance)"; 
-            prepOverlay.style.background = "rgba(25, 118, 210, 0.95)";
-        }
-    }
-
-    // Alert Logic
-    if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
-        prepOverlay.style.display = "flex";
-        if (announcedPrepMatch !== targetNum) {
-            announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
-            announcedPrepMatch = targetNum;
-        }
-    } else {
-        prepOverlay.style.display = "none";
-    }
-
-    if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
-        document.getElementById('full-screen-warning').style.display = "flex";
-        if (announcedQueueMatch !== targetNum) {
-            announceAlert("Now Queueing");
-            announcedQueueMatch = targetNum;
-        }
-    } else {
-        document.getElementById('full-screen-warning').style.display = "none";
-    }
-}
-
+        // STRATEGY & VISUALS (Keep Original)
         function updateDashboard() {
             const mId = document.getElementById('match-selector').value;
             const match = scheduleData.find(m => m.id == mId);
             if (!match) return;
 
             const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
-            const getRank = (n) => rankingsDataCache.find(t => Number(t['Team']) === n) || { Rank: '--' };
             const getEPA = (n) => { const t = epaDataCache.find(x => Number(x['Team']) === n); return t ? Number(t['Total EPA']) : 0; };
 
             const rEPA = match.redTeams.reduce((s, n) => s + getEPA(n), 0);
@@ -409,15 +296,14 @@
             document.getElementById('blue-prob-text').innerText = (bEPA/(rEPA+bEPA)*100).toFixed(0) + "%";
 
             const rD = match.redTeams.map(getT); const bD = match.blueTeams.map(getT);
-            
             document.getElementById('red-total-potential').innerText = rD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
             document.getElementById('blue-total-potential').innerText = bD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
 
             renderTable('red-table-body', match.redTeams, rD);
             renderTable('blue-table-body', match.blueTeams, bD);
             renderCharts(rD, bD, match.redTeams, match.blueTeams);
-            drawBadges(match.redTeams, 'red-citrus', 'red-deaths', getT, getRank);
-            drawBadges(match.blueTeams, 'blue-citrus', 'blue-deaths', getT, getRank);
+            drawBadges(match.redTeams, 'red-citrus', 'red-deaths', getT);
+            drawBadges(match.blueTeams, 'blue-citrus', 'blue-deaths', getT);
         }
 
         function renderTable(id, teams, data) {
@@ -446,28 +332,50 @@
             charts.rN = nav('redNavChart', rL, rD); charts.bN = nav('blueNavChart', bL, bD);
         }
 
-        function drawBadges(list, citrusId, deathsId, getT, getRank) {
+        function drawBadges(list, citrusId, deathsId, getT) {
             const cEl = document.getElementById(citrusId); cEl.innerHTML = '';
             const dEl = document.getElementById(deathsId); dEl.innerHTML = '';
             list.forEach(n => {
-                const t = getT(n); const r = getRank(n);
-                cEl.innerHTML += `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">R:${r.Rank} C:${(t["Avg Citrus"]||1).toFixed(1)}</div>`;
+                const t = getT(n);
+                cEl.innerHTML += `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">C:${(t["Avg Citrus"]||0).toFixed(1)}</div>`;
                 dEl.innerHTML += `<div class="death-badge" style="background:#b71c1c; color:white; font-size:0.7rem;">D:${t["Total Times Died"]||0}</div>`;
             });
         }
 
+        // ALERTS & UTILS
+        function processPitAlerts(data) {
+            const latest = data[data.length - 1];
+            const issue = latest['Issue'] || latest['issue'] || "";
+            const sub = latest['Subsystem'] || "GENERAL";
+            const sevRaw = String(latest['Severity #'] || latest['Severity'] || "0");
+            const sev = parseInt(sevRaw.replace(/\D/g, '')) || 0;
+            const alertID = issue + sub + sev;
+
+            if (!seenAlerts.includes(alertID) && issue.trim() !== "") {
+                seenAlerts.push(alertID);
+                localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
+                document.getElementById('alert-subsystem').innerText = sub;
+                document.getElementById('alert-issue').innerText = issue;
+                const overlay = document.getElementById('match-alert-overlay');
+                if (sev >= 4) overlay.style.backgroundColor = "black";
+                else if (sev === 3) overlay.style.backgroundColor = "red";
+                else overlay.style.backgroundColor = "orange";
+                overlay.style.display = "flex";
+                announceAlert("New Pit Alert: " + issue);
+            }
+        }
+
+        function announceAlert(text) {
+            if ('speechSynthesis' in window) {
+                const msg = new SpeechSynthesisUtterance(text);
+                window.speechSynthesis.speak(msg);
+            }
+        }
+
+        function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = 'none'; }
+        function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
+        function dismissPrep() { dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('prep-warning-overlay').style.display = "none"; }
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
-        
-        function dismissWarning() { 
-            dismissedMatch = parseInt(document.getElementById('target-match').innerText); 
-            document.getElementById('full-screen-warning').style.display = "none"; 
-        }
-
-        function dismissPrep() { 
-            dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); 
-            document.getElementById('prep-warning-overlay').style.display = "none"; 
-        }
-
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
         fetchData();
