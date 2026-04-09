@@ -237,32 +237,25 @@
             }
         }
 
-        // ==========================================
-        // 1. BRITISH FEMALE VOICE FIX
-        // ==========================================
         function announceAlert(customText) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); 
                 const utterance = new SpeechSynthesisUtterance(customText || "New Match Alert");
                 const voices = window.speechSynthesis.getVoices();
                 
-                // Specifically hunt for a British Female Voice
                 let ukVoice = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Female') || v.name.includes('Google UK English Female') || v.name.includes('Serena')));
                 
-                // Fallbacks if exact name isn't found
                 if (!ukVoice) ukVoice = voices.find(v => v.lang === 'en-GB'); 
                 if (!ukVoice) ukVoice = voices.find(v => v.name.includes('Female') || v.name.includes('female'));
                 
-                // Apply the voice, or default back if nothing is found
                 utterance.voice = ukVoice || voices.find(v => v.lang.startsWith('en')) || voices[0];
                 
-                utterance.rate = 0.85; // Calming, slightly slower speed
-                utterance.pitch = 1.1; // Slightly higher pitch
+                utterance.rate = 0.85; 
+                utterance.pitch = 1.1; 
                 window.speechSynthesis.speak(utterance);
             }
         }
 
-        // Helper function for fuzzy matching columns
         const getColumnValue = (row, searchKeyword) => {
             if (!row) return null;
             const key = Object.keys(row).find(k => k.toLowerCase().includes(searchKeyword.toLowerCase()));
@@ -304,7 +297,7 @@
         }
 
         // ==========================================
-        // 2. FUZZY MATCHING FOR STUCK NUMBERS FIX
+        // MATCH FINDING LOGIC UPDATED HERE
         // ==========================================
         function processLiveSchedule(nexus, tba) {
             let fieldMatchStr = '--';
@@ -312,29 +305,43 @@
             let matchesAway = NaN;
             let isRedAlliance = true;
 
+            const extractSafeMatchNumber = (val) => {
+                if (!val) return null;
+                const matches = String(val).match(/\d+/g); 
+                return matches ? matches[matches.length - 1] : null;
+            };
+
             let currentMatchIndex = -1;
+            let fieldMatchRow = null;
             
-            // Look for "on field" in the status column (ignoring case/spaces in header)
+            // 1. Specifically look for the exact "On field" status for the field match display
             for (let i = 0; i < nexus.length; i++) {
                 let statusVal = String(getColumnValue(nexus[i], 'status') || '').toLowerCase();
                 if (statusVal.includes('on field')) {
-                    currentMatchIndex = i;
+                    fieldMatchRow = nexus[i];
+                    currentMatchIndex = i; // Save this index to calculate "matches away"
                     break;
                 }
             }
 
+            // 2. Fallback if nothing is "On field" (e.g. at the start of day or between matches)
             if (currentMatchIndex === -1) {
                 for (let i = 0; i < nexus.length; i++) {
                     let statusVal = String(getColumnValue(nexus[i], 'status') || '').toLowerCase();
                     if (statusVal !== '' && !statusVal.includes('finished')) {
                         currentMatchIndex = i;
+                        if (!fieldMatchRow) fieldMatchRow = nexus[i];
                         break;
                     }
                 }
             }
 
             let effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0;
-            let currentMatchRow = nexus[effectiveCurrentIndex];
+
+            // 3. Set Field Match Display specifically from the correct row
+            if (fieldMatchRow) {
+                fieldMatchStr = extractSafeMatchNumber(getColumnValue(fieldMatchRow, 'match')) || '--';
+            }
 
             let nextTeamMatchIndex = -1;
             let nextTeamMatchRow = null;
@@ -343,7 +350,6 @@
                 const r = nexus[i];
                 const extractNum = (val) => parseInt(String(val).replace(/\D/g, ''), 10);
                 
-                // Fuzzy match the red/blue column names
                 const redTeams = [
                     getColumnValue(r, 'red 1'), getColumnValue(r, 'red 2'), getColumnValue(r, 'red 3')
                 ].map(extractNum);
@@ -364,16 +370,6 @@
                         isRedAlliance = redTeams.includes(TEAM_NUMBER);
                     }
                 }
-            }
-
-            const extractSafeMatchNumber = (val) => {
-                if (!val) return null;
-                const matches = String(val).match(/\d+/g); 
-                return matches ? matches[matches.length - 1] : null;
-            };
-
-            if (currentMatchRow) {
-                fieldMatchStr = extractSafeMatchNumber(getColumnValue(currentMatchRow, 'match')) || '--';
             }
 
             if (nextTeamMatchRow) {
@@ -553,58 +549,45 @@
                     }, 
                     options: { 
                         indexAxis: 'y', 
-                        responsive: true, 
-                        maintainAspectRatio: false, 
-                        plugins: { legend: { display: false } }, 
-                        scales: { 
-                            x: { max: 100, ticks: { color: 'white' } }, 
-                            y: { ticks: { color: 'white' } } 
-                        } 
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { labels: { color: 'white' } } },
+                        scales: {
+                            x: { ticks: { color: 'white' } },
+                            y: { ticks: { color: 'white' } }
+                        }
                     } 
                 });
             };
-            
-            charts.rN = nav('redNavChart', match.redTeams, rD); 
-            charts.bN = nav('blueNavChart', match.blueTeams, bD);
 
-            const drawBadges = (list, cId, dId, D) => {
-                let citrusHTML = "";
-                let deathsHTML = "";
-                
-                list.forEach(n => {
-                    const rankStr = getColumnValue(getRank(n), 'rank') || '--';
-                    const teamDat = D.find(t => Number(getColumnValue(t, 'team')) === n);
-                    const citrusVal = parseFloat(getColumnValue(teamDat, 'citrus')) || 1;
-                    const deathsVal = parseFloat(getColumnValue(teamDat, 'died')) || 0;
-                    
-                    citrusHTML += `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">R:${rankStr} C:${citrusVal.toFixed(1)}</div>`;
-                    deathsHTML += `<div class="death-badge" style="background:#b71c1c; color:white; font-size:0.7rem;">D:${deathsVal}</div>`;
-                });
-                
-                document.getElementById(cId).innerHTML = citrusHTML;
-                document.getElementById(dId).innerHTML = deathsHTML;
-            };
-            
-            drawBadges(match.redTeams, 'red-citrus', 'red-deaths', rD); 
-            drawBadges(match.blueTeams, 'blue-citrus', 'blue-deaths', bD);
+            charts.rN = nav('redNavChart', ['Red 1', 'Red 2', 'Red 3'], rD);
+            charts.bN = nav('blueNavChart', ['Blue 1', 'Blue 2', 'Blue 3'], bD);
         }
 
-        function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = "none"; }
-        function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
-        
-        function dismissWarning() { 
-            dismissedMatch = parseInt(document.getElementById('target-match').innerText); 
-            document.getElementById('full-screen-warning').style.display = "none"; 
-        }
-        
-        function dismissPrep() { 
-            dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); 
-            document.getElementById('prep-warning-overlay').style.display = "none"; 
+        // Action Handlers
+        function dismissPitAlert() {
+            document.getElementById('match-alert-overlay').style.display = 'none';
         }
 
-        // Fast Sync: Runs immediately, then exactly every 5000 milliseconds (5 seconds)
-        fetchData(); 
-        setInterval(fetchData, 5000); 
+        function dismissPrep() {
+            dismissedPrepMatch = announcedPrepMatch;
+            document.getElementById('prep-warning-overlay').style.display = 'none';
+        }
+
+        function dismissWarning() {
+            dismissedMatch = announcedQueueMatch;
+            document.getElementById('full-screen-warning').style.display = 'none';
+        }
+
+        function handleManualSelection() {
+            userManuallySelected = true;
+            updateDashboard();
+        }
+
+        // Initialize
+        fetchData();
+        setInterval(fetchData, 30000); 
+
     </script>
 </body>
 </html>
