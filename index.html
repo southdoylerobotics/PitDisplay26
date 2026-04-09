@@ -344,26 +344,50 @@
 
         // ALERTS & UTILS
         function processPitAlerts(data) {
-            const latest = data[data.length - 1];
-            const issue = latest['Issue'] || latest['issue'] || "";
-            const sub = latest['Subsystem'] || "GENERAL";
-            const sevRaw = String(latest['Severity #'] || latest['Severity'] || "0");
-            const sev = parseInt(sevRaw.replace(/\D/g, '')) || 0;
-            const alertID = issue + sub + sev;
+    const latest = data[data.length - 1];
+    if (!latest) return;
 
-            if (!seenAlerts.includes(alertID) && issue.trim() !== "") {
-                seenAlerts.push(alertID);
-                localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
-                document.getElementById('alert-subsystem').innerText = sub;
-                document.getElementById('alert-issue').innerText = issue;
-                const overlay = document.getElementById('match-alert-overlay');
-                if (sev >= 4) overlay.style.backgroundColor = "black";
-                else if (sev === 3) overlay.style.backgroundColor = "red";
-                else overlay.style.backgroundColor = "orange";
-                overlay.style.display = "flex";
-                announceAlert("New Pit Alert: " + issue);
-            }
+    // 1. Fuzzy find the columns (handles "Severity", "Severity #", "severity ", etc.)
+    const findValue = (searchTerms) => {
+        const key = Object.keys(latest).find(k => 
+            searchTerms.some(term => k.toLowerCase().trim().includes(term.toLowerCase()))
+        );
+        return key ? latest[key] : null;
+    };
+
+    const issue = findValue(['Issue', 'description']) || "";
+    const sub = findValue(['Subsystem', 'part']) || "GENERAL";
+    const rawSev = String(findValue(['Severity']) || "0");
+    
+    // 2. Extract the number from the severity string
+    const sev = parseInt(rawSev.replace(/\D/g, '')) || 0;
+    const alertID = issue + sub + sev;
+
+    // 3. Only trigger if it's a new alert and the issue isn't blank
+    if (!seenAlerts.includes(alertID) && issue.trim() !== "") {
+        seenAlerts.push(alertID);
+        localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
+
+        // UPDATE THE UI TEXT
+        document.getElementById('alert-subsystem').innerText = sub.toUpperCase();
+        document.getElementById('alert-issue').innerText = issue;
+        document.getElementById('alert-severity').innerText = "Severity: " + sev;
+
+        const overlay = document.getElementById('match-alert-overlay');
+        
+        // 4. Set background color based on severity
+        if (sev >= 4) {
+            overlay.style.backgroundColor = "black";
+        } else if (sev === 3) {
+            overlay.style.backgroundColor = "#d32f2f"; // Dark Red
+        } else {
+            overlay.style.backgroundColor = "#ff9800"; // Orange
         }
+
+        overlay.style.display = "flex";
+        announceAlert("New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+    }
+}
 
         function announceAlert(text) {
             if ('speechSynthesis' in window) {
