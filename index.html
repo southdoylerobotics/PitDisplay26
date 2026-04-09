@@ -175,7 +175,7 @@
     <script>
         const TEAM_NUMBER = 6517;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-        const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=995335638&single=true&output=csv";
+        const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
         const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
         const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
@@ -286,48 +286,34 @@
             }
         }
 
+        function dismissPitAlert() {
+            document.getElementById('match-alert-overlay').style.display = "none";
+            if(alertTimer) clearTimeout(alertTimer);
+        }
+
         function processLiveSchedule(live, tba) {
             if (!live || !live[0]) return;
             
-            // Flexibly find correct column names regardless of exact typing or whitespace
-            const keys = Object.keys(live[0]);
-            const statusCol = keys.find(k => k.trim().toLowerCase() === 'nexus_status') || 'Nexus_Status';
-            const matchCol = keys.find(k => k.trim().toLowerCase() === 'match' || k.trim().toLowerCase().includes('current match')) || 'Match';
-            const awayCol = keys.find(k => k.trim().toLowerCase().includes('matches until 6517')) || 'Matches Until 6517';
+            // Defensively grab keys to prevent whitespace typo bugs
+            const fieldMatchKey = Object.keys(live[0]).find(k => k.trim().includes('Current Match Number')) || 'Current Match Number';
+            const fieldMatch = String(live[0][fieldMatchKey] || '');
             
-            let fieldMatchStr = '';
-            let rawAway = '';
+            const matchAwayKey = Object.keys(live[0]).find(k => k.trim().includes('Matches Until 6517')) || 'Matches Until 6517';
+            const rawAway = live[0][matchAwayKey];
             
-            // Find the exact row where Nexus_Status indicates "On field" (Case Insensitive)
-            const onFieldRow = live.find(row => String(row[statusCol] || '').toLowerCase().includes('on field'));
-            
-            if (onFieldRow) {
-                fieldMatchStr = String(onFieldRow[matchCol] || '');
-                rawAway = String(onFieldRow[awayCol] || '');
-            } else {
-                // Safe fallback to first row just in case "On field" isn't present
-                fieldMatchStr = String(live[0][matchCol] || '');
-                rawAway = String(live[0][awayCol] || '');
-            }
-            
-            // Use Regular Expressions to strip away words and grab ONLY the first number it finds
-            const fieldMatchNumMatch = fieldMatchStr.match(/\d+/);
-            const fieldMatchNum = fieldMatchNumMatch ? parseInt(fieldMatchNumMatch[0], 10) : NaN;
-            
-            const matchesAwayMatch = String(rawAway).match(/\d+/);
-            const matchesAway = matchesAwayMatch ? parseInt(matchesAwayMatch[0], 10) : NaN;
+            // Only convert to a number if it is definitively a number. Otherwise, leave it as NaN (Not a Number)
+            const matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
 
-            const currentNum = !isNaN(fieldMatchNum) ? fieldMatchNum : 0;
+            const currentNum = parseInt(fieldMatch.match(/\d+/) || [0]);
             const targetNum = currentNum + (!isNaN(matchesAway) ? matchesAway : 0);
 
-            document.getElementById('field-match').innerText = !isNaN(fieldMatchNum) ? fieldMatchNum : '--';
+            document.getElementById('field-match').innerText = fieldMatch || '--';
             document.getElementById('target-match').innerText = targetNum || '--';
             document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
             document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
 
             scheduleData = tba.map(row => ({
-                // Strips words from TBA matching too, ensuring it doesn't break
-                id: parseInt(String(row['Match Number']).match(/\d+/) || [0], 10),
+                id: Number(row['Match Number']),
                 redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
                 blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
             })).filter(m => m.id);
@@ -346,6 +332,7 @@
                 else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
             }
 
+            // PREP WARNING (Only triggers if matchesAway is an actual number AND equals 3)
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
                 document.getElementById('prep-warning-overlay').style.display = "flex";
                 if (announcedPrepMatch !== targetNum) {
@@ -356,6 +343,7 @@
                 document.getElementById('prep-warning-overlay').style.display = "none";
             }
 
+            // QUEUE WARNING (Only triggers if matchesAway is an actual number AND is 0, 1, or 2)
             if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
                 if (announcedQueueMatch !== targetNum) {
