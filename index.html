@@ -288,79 +288,106 @@
         }
 
         function processLiveSchedule(live, tba) {
-            if (!live || !live[0]) return;
-            
-            // 1. Fetch from "Match ID" column, row 2 (which is live[0]). Extract only the digits.
-            const rawFieldMatch = String(live[0]['Match ID'] || '');
-            const fieldMatchMatch = rawFieldMatch.match(/\d+/);
-            const currentNum = fieldMatchMatch ? parseInt(fieldMatchMatch[0], 10) : 0;
+    if (!live || !live[0]) {
+        console.warn("No data found in the Live_Export sheet.");
+        return;
+    }
 
-            // 2. Fetch from "Next 6517 Match" column, row 2 (which is live[0]). Extract only the digits.
-            const rawTargetNum = String(live[0]['Next 6517 Match'] || '');
-            const targetMatchMatch = rawTargetNum.match(/\d+/);
-            const targetNum = targetMatchMatch ? parseInt(targetMatchMatch[0], 10) : 0;
+    // Helper to find a key even if it has weird spaces or casing
+    const findKey = (search) => {
+        return Object.keys(live[0]).find(key => 
+            key.toLowerCase().trim().includes(search.toLowerCase())
+        );
+    };
 
-            // 3. Fetch from "Matches Until 6517" column, row 2 (which is live[0]).
-            const rawAway = live[0]['Matches Until 6517'];
-            const matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
+    // Find the actual keys from your sheet
+    const matchIdKey = findKey('Match ID');
+    const nextMatchKey = findKey('Next 6517 Match');
+    const awayKey = findKey('Matches Until 6517');
 
-            document.getElementById('field-match').innerText = currentNum || '--';
-            document.getElementById('target-match').innerText = targetNum || '--';
-            document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
-            document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
+    // Debugging: This will show up in your Browser Console (F12)
+    console.log("Detected Keys:", { matchIdKey, nextMatchKey, awayKey });
+    console.log("Row 2 Data:", live[0]);
 
-            scheduleData = tba.map(row => ({
-                id: Number(row['Match Number']),
-                redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
-                blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
-            })).filter(m => m.id);
+    // 1. Field Match
+    let currentNum = 0;
+    if (matchIdKey) {
+        const rawFieldMatch = String(live[0][matchIdKey] || '');
+        const fieldMatchMatch = rawFieldMatch.match(/\d+/);
+        currentNum = fieldMatchMatch ? parseInt(fieldMatchMatch[0], 10) : 0;
+    }
 
-            const selector = document.getElementById('match-selector');
-            const prev = selector.value;
-            if (!userManuallySelected || !prev) {
-                selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
-                if(targetNum) selector.value = targetNum;
-            }
+    // 2. Next 6517 Match
+    let targetNum = 0;
+    if (nextMatchKey) {
+        const rawTargetNum = String(live[0][nextMatchKey] || '');
+        const targetMatchMatch = rawTargetNum.match(/\d+/);
+        targetNum = targetMatchMatch ? parseInt(targetMatchMatch[0], 10) : 0;
+    }
 
-            const match = scheduleData.find(m => m.id === targetNum);
-            const bumper = document.getElementById('bumper-color');
-            const prepOverlay = document.getElementById('prep-warning-overlay');
+    // 3. Matches Away
+    let matchesAway = NaN;
+    if (awayKey) {
+        const rawAway = live[0][awayKey];
+        matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
+    }
 
-            if (match) {
-                if (match.redTeams.includes(TEAM_NUMBER)) { 
-                    bumper.innerText = "[RED]"; 
-                    bumper.style.color = "var(--red-alliance)"; 
-                    prepOverlay.style.background = "rgba(211, 47, 47, 0.95)";
-                    prepOverlay.style.animation = "none";
-                }
-                else if (match.blueTeams.includes(TEAM_NUMBER)) { 
-                    bumper.innerText = "[BLUE]"; 
-                    bumper.style.color = "var(--blue-alliance)"; 
-                    prepOverlay.style.background = "rgba(25, 118, 210, 0.95)";
-                    prepOverlay.style.animation = "none";
-                }
-            }
+    // Update the UI
+    document.getElementById('field-match').innerText = currentNum || '--';
+    document.getElementById('target-match').innerText = targetNum || '--';
+    document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
+    document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
 
-            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
-                prepOverlay.style.display = "flex";
-                if (announcedPrepMatch !== targetNum) {
-                    announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
-                    announcedPrepMatch = targetNum;
-                }
-            } else {
-                prepOverlay.style.display = "none";
-            }
+    // ... (rest of the schedule/bumper logic remains the same)
+    scheduleData = tba.map(row => ({
+        id: Number(row['Match Number']),
+        redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
+        blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
+    })).filter(m => m.id);
 
-            if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
-                document.getElementById('full-screen-warning').style.display = "flex";
-                if (announcedQueueMatch !== targetNum) {
-                    announceAlert("Now Queueing");
-                    announcedQueueMatch = targetNum;
-                }
-            } else {
-                document.getElementById('full-screen-warning').style.display = "none";
-            }
+    const selector = document.getElementById('match-selector');
+    if (!userManuallySelected || !selector.value) {
+        selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
+        if(targetNum) selector.value = targetNum;
+    }
+
+    const match = scheduleData.find(m => m.id === targetNum);
+    const bumper = document.getElementById('bumper-color');
+    const prepOverlay = document.getElementById('prep-warning-overlay');
+
+    if (match) {
+        if (match.redTeams.includes(TEAM_NUMBER)) { 
+            bumper.innerText = "[RED]"; 
+            bumper.style.color = "var(--red-alliance)"; 
+            prepOverlay.style.background = "rgba(211, 47, 47, 0.95)";
+        } else if (match.blueTeams.includes(TEAM_NUMBER)) { 
+            bumper.innerText = "[BLUE]"; 
+            bumper.style.color = "var(--blue-alliance)"; 
+            prepOverlay.style.background = "rgba(25, 118, 210, 0.95)";
         }
+    }
+
+    // Alert Logic
+    if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+        prepOverlay.style.display = "flex";
+        if (announcedPrepMatch !== targetNum) {
+            announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
+            announcedPrepMatch = targetNum;
+        }
+    } else {
+        prepOverlay.style.display = "none";
+    }
+
+    if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
+        document.getElementById('full-screen-warning').style.display = "flex";
+        if (announcedQueueMatch !== targetNum) {
+            announceAlert("Now Queueing");
+            announcedQueueMatch = targetNum;
+        }
+    } else {
+        document.getElementById('full-screen-warning').style.display = "none";
+    }
+}
 
         function updateDashboard() {
             const mId = document.getElementById('match-selector').value;
