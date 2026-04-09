@@ -43,13 +43,13 @@
         }
         .alert-dismiss:hover { background: white; color: black; }
 
-        /* Queue Warning */
-        .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
-        @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
-
         /* Prep Warning */
         .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: prepFlash 2s infinite; background: rgba(255, 152, 0, 0.95); padding: 20px; }
         @keyframes prepFlash { 0% { background-color: rgba(255, 140, 0, 0.95); } 50% { background-color: rgba(255, 165, 0, 0.95); } 100% { background-color: rgba(255, 140, 0, 0.95); } }
+
+        /* Queue Warning */
+        .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
+        @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
 
         /* Dashboard Wrapper & Original Styles */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
@@ -185,10 +185,8 @@
         let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
         let announcedQueueMatch = -1, announcedPrepMatch = -1;
         
-        // Memory of seen alerts (prevents cycling and refreshing bugs)
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
 
-        // Fetch voices early
         if ('speechSynthesis' in window) {
             window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
         }
@@ -218,21 +216,17 @@
 
         function announceAlert(customText) {
             if ('speechSynthesis' in window) {
-                // Instantly clear any old/stuck audio queues so the speech fires exactly right now
                 window.speechSynthesis.cancel(); 
 
                 const textToSpeak = customText || "New Match Alert";
                 const utterance = new SpeechSynthesisUtterance(textToSpeak);
                 const voices = window.speechSynthesis.getVoices();
                 
-                // Fallback Logic: Try British/Aussie -> Try Any English -> Try Computer's Default
                 const preferredVoice = voices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.name.includes('UK') || v.name.includes('Australia')) 
                                        || voices.find(v => v.lang.startsWith('en')) 
                                        || voices[0];
                 
                 if (preferredVoice) utterance.voice = preferredVoice;
-                
-                // Make the voice slower and calmer
                 utterance.rate = 0.85; 
                 utterance.pitch = 0.9;
                 
@@ -254,15 +248,11 @@
             const rawSev = latest[sevKey] ? String(latest[sevKey]).trim() : "";
             const rawTime = timeKey && latest[timeKey] ? String(latest[timeKey]).trim() : "";
 
-            // Create a unique identifier for this exact row to prevent cycling
             const alertID = rawTime + "|" + rawIssue + "|" + rawSub + "|" + rawSev;
 
-            // Only trigger if we haven't seen this specific alert ID before
             if (!seenAlerts.includes(alertID)) {
-                
-                // Add to history and save to browser memory
                 seenAlerts.push(alertID);
-                if (seenAlerts.length > 50) seenAlerts.shift(); // Keep memory limit to last 50
+                if (seenAlerts.length > 50) seenAlerts.shift(); 
                 localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
                 
                 const displayIssue = rawIssue === "" ? "ALL GOOD!" : rawIssue;
@@ -274,30 +264,25 @@
 
                 if (rawSev === "") {
                     sevEl.innerText = "Severity: N/A";
-                    overlay.style.backgroundColor = "#004d00"; // Deep Green for empty severity
+                    overlay.style.backgroundColor = "#004d00";
                 } else {
                     const sevMatch = rawSev.match(/\d+/);
                     const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
                     sevEl.innerText = `Severity: ${sev}`;
                     
-                    if (sev === 1) overlay.style.backgroundColor = "#2196F3"; // Blue
-                    else if (sev === 2) overlay.style.backgroundColor = "#4CAF50"; // Standard Green
-                    else if (sev === 3) overlay.style.backgroundColor = "#FF9800"; // Orange
-                    else if (sev === 4) overlay.style.backgroundColor = "#F44336"; // Red
-                    else if (sev >= 5) overlay.style.backgroundColor = "#000000"; // Black
-                    else overlay.style.backgroundColor = "#000000"; // Default
+                    if (sev === 1) overlay.style.backgroundColor = "#2196F3"; 
+                    else if (sev === 2) overlay.style.backgroundColor = "#4CAF50"; 
+                    else if (sev === 3) overlay.style.backgroundColor = "#FF9800"; 
+                    else if (sev === 4) overlay.style.backgroundColor = "#F44336"; 
+                    else if (sev >= 5) overlay.style.backgroundColor = "#000000"; 
+                    else overlay.style.backgroundColor = "#000000"; 
                 }
                 
                 overlay.style.display = "flex";
-
-                // Speak the default pit alert!
                 announceAlert();
 
-                // 2.5 MINUTE AUTO-TIMEOUT (150,000 ms)
                 if(alertTimer) clearTimeout(alertTimer);
-                alertTimer = setTimeout(() => {
-                    dismissPitAlert();
-                }, 150000); 
+                alertTimer = setTimeout(() => { dismissPitAlert(); }, 150000); 
             }
         }
 
@@ -307,15 +292,25 @@
         }
 
         function processLiveSchedule(live, tba) {
-            const fieldMatch = String(live[0]['Current Match Number'] || '');
-            const matchesAway = Number(live[0]['Matches Until 6517']) || 0;
-            const currentNum = parseInt(fieldMatch.match(/\d+/) || [0]);
-            const targetNum = currentNum + matchesAway;
+            if (!live || !live[0]) return;
+            
+            // Defensively grab keys to prevent whitespace typo bugs
+            const fieldMatchKey = Object.keys(live[0]).find(k => k.trim().includes('Current Match Number')) || 'Current Match Number';
+            const fieldMatch = String(live[0][fieldMatchKey] || '');
+            
+            const matchAwayKey = Object.keys(live[0]).find(k => k.trim().includes('Matches Until 6517')) || 'Matches Until 6517';
+            const rawAway = live[0][matchAwayKey];
+            
+            // Only convert to a number if it is definitively a number. Otherwise, leave it as NaN (Not a Number)
+            const matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
 
-            document.getElementById('field-match').innerText = fieldMatch;
-            document.getElementById('target-match').innerText = targetNum;
-            document.getElementById('matches-away').innerText = matchesAway;
-            document.getElementById('warning-matches-away').innerText = matchesAway;
+            const currentNum = parseInt(fieldMatch.match(/\d+/) || [0]);
+            const targetNum = currentNum + (!isNaN(matchesAway) ? matchesAway : 0);
+
+            document.getElementById('field-match').innerText = fieldMatch || '--';
+            document.getElementById('target-match').innerText = targetNum || '--';
+            document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
+            document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
 
             scheduleData = tba.map(row => ({
                 id: Number(row['Match Number']),
@@ -327,7 +322,7 @@
             const prev = selector.value;
             if (!userManuallySelected || !prev) {
                 selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
-                selector.value = targetNum;
+                if(targetNum) selector.value = targetNum;
             }
 
             const match = scheduleData.find(m => m.id === targetNum);
@@ -337,8 +332,8 @@
                 else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
             }
 
-            // NEW: PREP WARNING (3 Matches Away)
-            if (matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+            // PREP WARNING (Only triggers if matchesAway is an actual number AND equals 3)
+            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
                 document.getElementById('prep-warning-overlay').style.display = "flex";
                 if (announcedPrepMatch !== targetNum) {
                     announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
@@ -348,8 +343,8 @@
                 document.getElementById('prep-warning-overlay').style.display = "none";
             }
 
-            // QUEUE WARNING (0-2 Matches Away)
-            if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
+            // QUEUE WARNING (Only triggers if matchesAway is an actual number AND is 0, 1, or 2)
+            if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
                 if (announcedQueueMatch !== targetNum) {
                     announceAlert("Now Queueing");
@@ -441,7 +436,6 @@
 
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
-        // FAST POLLING: Now checks for data every 5 seconds (5000ms)
         fetchData();
         setInterval(fetchData, 5000); 
     </script>
