@@ -180,59 +180,79 @@
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
         const NEXUS_QUEUING_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=995335638&single=true&output=csv";
 
-        let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
-        let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
-        let announcedQueueMatch = -1, announcedPrepMatch = -1;
+        let charts = {};
+        let teamDataCache = [];
+        let scheduleData = [];
+        let epaDataCache = [];
+        let rankingsDataCache = [];
+        
+        let dismissedMatch = -1;
+        let dismissedPrepMatch = -1;
+        let userManuallySelected = false;
+        let alertTimer = null;
+        let announcedQueueMatch = -1;
+        let announcedPrepMatch = -1;
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
 
-        if ('speechSynthesis' in window) window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+        }
 
         async function fetchData() {
             try {
+                // Ensure cache-busting so we get new data immediately 
                 const ts = `&t=${Date.now()}`;
+                
                 const [avgRes, tbaRes, epaRes, rankRes, alertRes, nexusRes] = await Promise.all([
-                    fetch(AVERAGES_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
+                    fetch(AVERAGES_URL + ts),
+                    fetch(TBA_MATCHES_URL + ts),
+                    fetch(STATBOTICS_URL + ts),
+                    fetch(TBA_RANKINGS_URL + ts),
+                    fetch(ALERTS_URL + ts),
+                    fetch(NEXUS_QUEUING_URL + ts)
                 ]);
                 
-                const parseObjConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
-                const parseArrConfig = { header: false, dynamicTyping: true, skipEmptyLines: true };
+                // All CSVs (including Nexus) parsed strictly as objects with headers
+                const parseObjConfig = { 
+                    header: true, 
+                    dynamicTyping: true, 
+                    skipEmptyLines: true, 
+                    transformHeader: h => h ? h.trim() : h 
+                };
 
                 teamDataCache = Papa.parse(await avgRes.text(), parseObjConfig).data;
                 epaDataCache = Papa.parse(await epaRes.text(), parseObjConfig).data;
                 rankingsDataCache = Papa.parse(await rankRes.text(), parseObjConfig).data;
+                
                 const tbaData = Papa.parse(await tbaRes.text(), parseObjConfig).data;
                 const alertsData = Papa.parse(await alertRes.text(), parseObjConfig).data;
-                const nexusData = Papa.parse(await nexusRes.text(), parseArrConfig).data;
+                const nexusData = Papa.parse(await nexusRes.text(), parseObjConfig).data;
 
-                // --- DEBUGGER ---
-                console.log("RAW NEXUS DATA:", nexusData);
-                if (nexusData.length > 0 && !window.hasAlertedNexus) {
-                    window.hasAlertedNexus = true; // only alert once
-                    console.log("First Row of Nexus:", nexusData[0]);
-                    console.log("Second Row of Nexus:", nexusData[1]);
+                if (alertsData.length > 0) {
+                    processPitAlerts(alertsData);
                 }
-
-                if (alertsData.length > 0) processPitAlerts(alertsData);
                 
                 if (nexusData.length > 0 && tbaData.length > 0) {
                     processLiveSchedule(nexusData, tbaData);
                     updateDashboard();
                     document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
                 } else {
-                    document.getElementById('status-text').innerText = "No Data Found in Sheets!";
+                    document.getElementById('status-text').innerText = "Awaiting Matches...";
                 }
             } catch (e) { 
-                console.error("CRITICAL ERROR FETCHING DATA:", e); 
-                document.getElementById('status-text').innerText = "Error: " + e.message;
+                console.error("Error fetching data:", e); 
+                document.getElementById('status-text').innerText = "Sync Error Retrying...";
             }
         }
+
         function announceAlert(customText) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); 
                 const utterance = new SpeechSynthesisUtterance(customText || "New Match Alert");
                 const voices = window.speechSynthesis.getVoices();
                 utterance.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-                utterance.rate = 0.85; utterance.pitch = 0.9;
+                utterance.rate = 0.85; 
+                utterance.pitch = 0.9;
                 window.speechSynthesis.speak(utterance);
             }
         }
@@ -264,89 +284,59 @@
                 const overlay = document.getElementById('match-alert-overlay');
                 const sevEl = document.getElementById('alert-severity');
                 const sevMatch = rawSev.match(/\d+/);
-                const sasync function fetchData() {
-            try {
-                const ts = `&t=${Date.now()}`;
-                const [avgRes, tbaRes, epaRes, rankRes, alertRes, nexusRes] = await Promise.all([
-                    fetch(AVERAGES_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
-                ]);
+                const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
                 
-                const parseObjConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
-                const parseArrConfig = { header: false, dynamicTyping: true, skipEmptyLines: true };
-
-                teamDataCache = Papa.parse(await avgRes.text(), parseObjConfig).data;
-                epaDataCache = Papa.parse(await epaRes.text(), parseObjConfig).data;
-                rankingsDataCache = Papa.parse(await rankRes.text(), parseObjConfig).data;
-                const tbaData = Papa.parse(await tbaRes.text(), parseObjConfig).data;
-                const alertsData = Papa.parse(await alertRes.text(), parseObjConfig).data;
-                const nexusData = Papa.parse(await nexusRes.text(), parseArrConfig).data;
-
-                // --- DEBUGGER ---
-                console.log("RAW NEXUS DATA:", nexusData);
-                if (nexusData.length > 0 && !window.hasAlertedNexus) {
-                    window.hasAlertedNexus = true; // only alert once
-                    console.log("First Row of Nexus:", nexusData[0]);
-                    console.log("Second Row of Nexus:", nexusData[1]);
-                }
-
-                if (alertsData.length > 0) processPitAlerts(alertsData);
+                sevEl.innerText = rawSev === "" ? "Severity: N/A" : `Severity: ${sev}`;
+                const colors = {1:"#2196F3", 2:"#4CAF50", 3:"#FF9800", 4:"#F44336"};
+                overlay.style.backgroundColor = rawSev === "" ? "#004d00" : (colors[sev] || "#000000");
                 
-                if (nexusData.length > 0 && tbaData.length > 0) {
-                    processLiveSchedule(nexusData, tbaData);
-                    updateDashboard();
-                    document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
-                } else {
-                    document.getElementById('status-text').innerText = "No Data Found in Sheets!";
-                }
-            } catch (e) { 
-                console.error("CRITICAL ERROR FETCHING DATA:", e); 
-                document.getElementById('status-text').innerText = "Error: " + e.message;
+                overlay.style.display = "flex";
+                announceAlert();
+                if(alertTimer) clearTimeout(alertTimer);
+                alertTimer = setTimeout(dismissPitAlert, 150000); 
             }
         }
+
         function processLiveSchedule(nexus, tba) {
-            let fieldMatchStr = '--', targetNumStr = '--', matchesAway = NaN, isRedAlliance = true;
+            let fieldMatchStr = '--';
+            let targetNumStr = '--';
+            let matchesAway = NaN;
+            let isRedAlliance = true;
 
-            // Optional: Skip row 0 if it looks like a manual header row
-            let startIndex = 0;
-            if (nexus.length > 0 && typeof nexus[0][0] === 'string' && nexus[0][0].toLowerCase().includes('match')) {
-                startIndex = 1;
-            }
-
-            // SMART STATUS SEARCH (Strictly looks at Column 1, which is liveStatus based on your script)
             let currentMatchIndex = -1;
-            for (let i = startIndex; i < nexus.length; i++) {
-                let s = String(nexus[i][1] || '').toLowerCase();
-                if (s.includes('on field')) {
+            
+            // Search for "on field" based on Status column
+            for (let i = 0; i < nexus.length; i++) {
+                let status = String(nexus[i]['Status'] || '').toLowerCase();
+                if (status.includes('on field')) {
                     currentMatchIndex = i;
                     break;
                 }
             }
 
-            // If no match is "on field", grab the first match that isn't "finished"
+            // Fallback if none are on field
             if (currentMatchIndex === -1) {
-                for (let i = startIndex; i < nexus.length; i++) {
-                    let s = String(nexus[i][1] || '').toLowerCase();
-                    if (s !== '' && !s.includes('finished')) {
+                for (let i = 0; i < nexus.length; i++) {
+                    let status = String(nexus[i]['Status'] || '').toLowerCase();
+                    if (status !== '' && !status.includes('finished')) {
                         currentMatchIndex = i;
                         break;
                     }
                 }
             }
 
-            let effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : startIndex;
+            let effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0;
             let currentMatchRow = nexus[effectiveCurrentIndex];
 
-            // FIND 6517 MATCH (Strictly looking at columns 4, 5, 6 for Red and 7, 8, 9 for Blue)
             let nextTeamMatchIndex = -1;
             let nextTeamMatchRow = null;
 
-            for (let i = startIndex; i < nexus.length; i++) {
+            for (let i = 0; i < nexus.length; i++) {
                 const r = nexus[i];
-                const extractNum = val => parseInt(String(val).replace(/\D/g, ''), 10);
+                const extractNum = (val) => parseInt(String(val).replace(/\D/g, ''), 10);
                 
-                // Column indices based on your GAS sheetData.push structure
-                const redTeams = [r[4], r[5], r[6]].map(extractNum);
-                const blueTeams = [r[7], r[8], r[9]].map(extractNum);
+                const redTeams = [r['Red 1'], r['Red 2'], r['Red 3']].map(extractNum);
+                const blueTeams = [r['Blue 1'], r['Blue 2'], r['Blue 3']].map(extractNum);
                 
                 if (redTeams.includes(TEAM_NUMBER) || blueTeams.includes(TEAM_NUMBER)) {
                     if (i >= effectiveCurrentIndex) {
@@ -362,18 +352,21 @@
                 }
             }
 
-            // AGGRESSIVE NUMBER EXTRACTION
             const extractSafeMatchNumber = (val) => {
                 if (!val) return null;
                 const matches = String(val).match(/\d+/g); 
                 return matches ? matches[matches.length - 1] : null;
             };
 
-            // Grab the match label from Column 0
-            if (currentMatchRow) fieldMatchStr = extractSafeMatchNumber(currentMatchRow[0]) || '--';
+            // Assuming standard column keys like "Match Name" or similar fallback
+            const matchNameKey = Object.keys(nexus[0] || {}).find(k => k.toLowerCase().includes('match')) || 'Match Name';
+
+            if (currentMatchRow) {
+                fieldMatchStr = extractSafeMatchNumber(currentMatchRow[matchNameKey]) || '--';
+            }
 
             if (nextTeamMatchRow) {
-                targetNumStr = extractSafeMatchNumber(nextTeamMatchRow[0]) || '--';
+                targetNumStr = extractSafeMatchNumber(nextTeamMatchRow[matchNameKey]) || '--';
                 matchesAway = nextTeamMatchIndex - effectiveCurrentIndex;
             }
 
@@ -383,11 +376,13 @@
             document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
             document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
 
-            scheduleData = tba.map(row => ({
-                id: Number(row['Match Number']),
-                redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
-                blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
-            })).filter(m => m.id);
+            scheduleData = tba.map(row => {
+                return {
+                    id: Number(row['Match Number']),
+                    redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
+                    blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
+                };
+            }).filter(m => m.id);
 
             const selector = document.getElementById('match-selector');
             if (!userManuallySelected || !selector.value) {
@@ -398,13 +393,17 @@
             const match = scheduleData.find(m => m.id === targetNum);
             const bumper = document.getElementById('bumper-color');
             if (match) {
-                if (match.redTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; }
-                else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
+                if (match.redTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[RED]"; 
+                    bumper.style.color = "var(--red-alliance)"; 
+                } else if (match.blueTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[BLUE]"; 
+                    bumper.style.color = "var(--blue-alliance)"; 
+                }
             } else {
                  bumper.innerText = "";
             }
 
-            // POP-UP LOGIC
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
                 const prepOverlay = document.getElementById('prep-warning-overlay');
                 prepOverlay.className = isRedAlliance ? 'prep-overlay red' : 'prep-overlay blue';
@@ -431,51 +430,170 @@
         }
 
         function updateDashboard() {
-            const match = scheduleData.find(m => m.id == document.getElementById('match-selector').value);
+            const selectorValue = document.getElementById('match-selector').value;
+            const match = scheduleData.find(m => m.id == selectorValue);
             if (!match) return;
 
-            const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
-            const getRank = (n) => rankingsDataCache.find(t => Number(t['Team']) === n) || { Rank: '--' };
-            const getEPA = (n) => { const t = epaDataCache.find(x => Number(x['Team']) === n); return t ? Number(t['Total EPA']) : 0; };
+            const getT = (n) => {
+                return teamDataCache.find(t => Number(t['Team Number']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
+            };
+            
+            const getRank = (n) => {
+                return rankingsDataCache.find(t => Number(t['Team']) === n) || { Rank: '--' };
+            };
+            
+            const getEPA = (n) => { 
+                const t = epaDataCache.find(x => Number(x['Team']) === n); 
+                return t ? Number(t['Total EPA']) : 0; 
+            };
 
-            const rEPA = match.redTeams.reduce((s, n) => s + getEPA(n), 0);
-            const bEPA = match.blueTeams.reduce((s, n) => s + getEPA(n), 0);
+            let rEPA = 0;
+            match.redTeams.forEach(n => rEPA += getEPA(n));
+            
+            let bEPA = 0;
+            match.blueTeams.forEach(n => bEPA += getEPA(n));
             
             document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
             document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
-            document.getElementById('red-fill').style.width = (rEPA / (rEPA + bEPA) * 100) + "%";
-            document.getElementById('blue-fill').style.width = (bEPA / (rEPA + bEPA) * 100) + "%";
-            document.getElementById('red-prob-text').innerText = (rEPA/(rEPA+bEPA)*100).toFixed(0) + "%";
-            document.getElementById('blue-prob-text').innerText = (bEPA/(rEPA+bEPA)*100).toFixed(0) + "%";
+            
+            let totalEPA = rEPA + bEPA;
+            if (totalEPA === 0) totalEPA = 1; 
+            
+            document.getElementById('red-fill').style.width = ((rEPA / totalEPA) * 100) + "%";
+            document.getElementById('blue-fill').style.width = ((bEPA / totalEPA) * 100) + "%";
+            document.getElementById('red-prob-text').innerText = ((rEPA / totalEPA) * 100).toFixed(0) + "%";
+            document.getElementById('blue-prob-text').innerText = ((bEPA / totalEPA) * 100).toFixed(0) + "%";
 
-            const rD = match.redTeams.map(getT); const bD = match.blueTeams.map(getT);
-            document.getElementById('red-total-potential').innerText = rD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
-            document.getElementById('blue-total-potential').innerText = bD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
+            const rD = match.redTeams.map(getT); 
+            const bD = match.blueTeams.map(getT);
+            
+            let redTotalEst = 0;
+            rD.forEach(t => redTotalEst += (t['Avg Total'] || 0));
+            document.getElementById('red-total-potential').innerText = redTotalEst.toFixed(1);
+            
+            let blueTotalEst = 0;
+            bD.forEach(t => blueTotalEst += (t['Avg Total'] || 0));
+            document.getElementById('blue-total-potential').innerText = blueTotalEst.toFixed(1);
 
-            document.getElementById('red-table-body').innerHTML = `<tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr>` + match.redTeams.map((n, i) => `<tr><td style="color:var(--gold); font-weight:bold;">${n}</td><td>${(rD[i]['Avg Auto']||0).toFixed(1)}</td><td>${(rD[i]['Avg Teleop']||0).toFixed(1)}</td><td>${(rD[i]['Avg Endgame']||0).toFixed(1)}</td><td>${(rD[i]['Avg Total']||0).toFixed(1)}</td></tr>`).join('');
-            document.getElementById('blue-table-body').innerHTML = `<tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr>` + match.blueTeams.map((n, i) => `<tr><td style="color:var(--gold); font-weight:bold;">${n}</td><td>${(bD[i]['Avg Auto']||0).toFixed(1)}</td><td>${(bD[i]['Avg Teleop']||0).toFixed(1)}</td><td>${(bD[i]['Avg Endgame']||0).toFixed(1)}</td><td>${(bD[i]['Avg Total']||0).toFixed(1)}</td></tr>`).join('');
-
-            if(charts.comb) charts.comb.destroy(); if(charts.rN) charts.rN.destroy(); if(charts.bN) charts.bN.destroy();
-            const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
-            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
-                type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [{ label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' }, { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' }, { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white' } } }, scales: { y: { ticks: { color: 'white' } }, x: { ticks: { color: 'white' } } } }
+            let redTableHTML = `<tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr>`;
+            match.redTeams.forEach((n, i) => {
+                redTableHTML += `<tr>
+                    <td style="color:var(--gold); font-weight:bold;">${n}</td>
+                    <td>${(rD[i]['Avg Auto']||0).toFixed(1)}</td>
+                    <td>${(rD[i]['Avg Teleop']||0).toFixed(1)}</td>
+                    <td>${(rD[i]['Avg Endgame']||0).toFixed(1)}</td>
+                    <td>${(rD[i]['Avg Total']||0).toFixed(1)}</td>
+                </tr>`;
             });
-            const nav = (id, labs, dat) => new Chart(document.getElementById(id), { type: 'bar', data: { labels: labs, datasets: [{ label: 'Bump', data: dat.map(d => (parseFloat(d['Bump %']) || 0) * 100), backgroundColor: '#ef5350' }, { label: 'Trench', data: dat.map(d => (parseFloat(d['Trench %']) || 0) * 100), backgroundColor: '#ab47bc' }]}, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { color: 'white' } }, y: { ticks: { color: 'white' } } } } });
-            charts.rN = nav('redNavChart', match.redTeams, rD); charts.bN = nav('blueNavChart', match.blueTeams, bD);
+            document.getElementById('red-table-body').innerHTML = redTableHTML;
+
+            let blueTableHTML = `<tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr>`;
+            match.blueTeams.forEach((n, i) => {
+                blueTableHTML += `<tr>
+                    <td style="color:var(--gold); font-weight:bold;">${n}</td>
+                    <td>${(bD[i]['Avg Auto']||0).toFixed(1)}</td>
+                    <td>${(bD[i]['Avg Teleop']||0).toFixed(1)}</td>
+                    <td>${(bD[i]['Avg Endgame']||0).toFixed(1)}</td>
+                    <td>${(bD[i]['Avg Total']||0).toFixed(1)}</td>
+                </tr>`;
+            });
+            document.getElementById('blue-table-body').innerHTML = blueTableHTML;
+
+            if(charts.comb) charts.comb.destroy(); 
+            if(charts.rN) charts.rN.destroy(); 
+            if(charts.bN) charts.bN.destroy();
+            
+            const sum = (d, k) => {
+                let total = 0;
+                d.forEach(t => total += (parseFloat(t[k]) || 0));
+                return total;
+            };
+
+            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
+                type: 'bar', 
+                data: { 
+                    labels: ['Red', 'Blue'], 
+                    datasets: [
+                        { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' }, 
+                        { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' }, 
+                        { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
+                    ]
+                }, 
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { legend: { labels: { color: 'white' } } }, 
+                    scales: { 
+                        y: { ticks: { color: 'white' } }, 
+                        x: { ticks: { color: 'white' } } 
+                    } 
+                }
+            });
+            
+            const nav = (id, labs, dat) => {
+                return new Chart(document.getElementById(id), { 
+                    type: 'bar', 
+                    data: { 
+                        labels: labs, 
+                        datasets: [
+                            { label: 'Bump', data: dat.map(d => (parseFloat(d['Bump %']) || 0) * 100), backgroundColor: '#ef5350' }, 
+                            { label: 'Trench', data: dat.map(d => (parseFloat(d['Trench %']) || 0) * 100), backgroundColor: '#ab47bc' }
+                        ]
+                    }, 
+                    options: { 
+                        indexAxis: 'y', 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        plugins: { legend: { display: false } }, 
+                        scales: { 
+                            x: { max: 100, ticks: { color: 'white' } }, 
+                            y: { ticks: { color: 'white' } } 
+                        } 
+                    } 
+                });
+            };
+            
+            charts.rN = nav('redNavChart', match.redTeams, rD); 
+            charts.bN = nav('blueNavChart', match.blueTeams, bD);
 
             const drawBadges = (list, cId, dId, D) => {
-                document.getElementById(cId).innerHTML = list.map(n => `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">R:${getRank(n).Rank} C:${(D.find(t=>Number(t['Team Number'])===n)?.["Avg Citrus"]||1).toFixed(1)}</div>`).join('');
-                document.getElementById(dId).innerHTML = list.map(n => `<div class="death-badge" style="background:#b71c1c; color:white; font-size:0.7rem;">D:${D.find(t=>Number(t['Team Number'])===n)?.["Total Times Died"]||0}</div>`).join('');
+                let citrusHTML = "";
+                let deathsHTML = "";
+                
+                list.forEach(n => {
+                    const rankStr = getRank(n).Rank;
+                    const teamDat = D.find(t => Number(t['Team Number']) === n);
+                    const citrusVal = (teamDat && teamDat["Avg Citrus"]) ? teamDat["Avg Citrus"] : 1;
+                    const deathsVal = (teamDat && teamDat["Total Times Died"]) ? teamDat["Total Times Died"] : 0;
+                    
+                    citrusHTML += `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">R:${rankStr} C:${citrusVal.toFixed(1)}</div>`;
+                    deathsHTML += `<div class="death-badge" style="background:#b71c1c; color:white; font-size:0.7rem;">D:${deathsVal}</div>`;
+                });
+                
+                document.getElementById(cId).innerHTML = citrusHTML;
+                document.getElementById(dId).innerHTML = deathsHTML;
             };
-            drawBadges(match.redTeams, 'red-citrus', 'red-deaths', rD); drawBadges(match.blueTeams, 'blue-citrus', 'blue-deaths', bD);
+            
+            drawBadges(match.redTeams, 'red-citrus', 'red-deaths', rD); 
+            drawBadges(match.blueTeams, 'blue-citrus', 'blue-deaths', bD);
         }
 
         function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = "none"; }
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
-        function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
-        function dismissPrep() { dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('prep-warning-overlay').style.display = "none"; }
+        
+        function dismissWarning() { 
+            dismissedMatch = parseInt(document.getElementById('target-match').innerText); 
+            document.getElementById('full-screen-warning').style.display = "none"; 
+        }
+        
+        function dismissPrep() { 
+            dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); 
+            document.getElementById('prep-warning-overlay').style.display = "none"; 
+        }
 
-        fetchData(); setInterval(fetchData, 5000); 
+        // Fast Sync: Runs immediately, then exactly every 5000 milliseconds (5 seconds)
+        fetchData(); 
+        setInterval(fetchData, 5000); 
     </script>
 </body>
 </html>
