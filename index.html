@@ -43,7 +43,7 @@
         }
         .alert-dismiss:hover { background: white; color: black; }
 
-        /* PREP WARNING (Dynamically Colored via JS) */
+        /* PREP WARNING */
         .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: none; justify-content: center; align-items: center; flex-direction: column; padding: 20px; }
         .prep-overlay.red { animation: prepFlashRed 2s infinite; background: rgba(211, 47, 47, 0.95); }
         @keyframes prepFlashRed { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
@@ -194,14 +194,19 @@
                     fetch(AVERAGES_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
                 ]);
                 
-                const parseConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
+                const parseObjConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
+                
+                // IMPORTANT: We treat Nexus as a raw array (NO headers) so we can look at it strictly by column position.
+                const parseArrConfig = { header: false, dynamicTyping: true, skipEmptyLines: true };
 
-                teamDataCache = Papa.parse(await avgRes.text(), parseConfig).data;
-                epaDataCache = Papa.parse(await epaRes.text(), parseConfig).data;
-                rankingsDataCache = Papa.parse(await rankRes.text(), parseConfig).data;
-                const tbaData = Papa.parse(await tbaRes.text(), parseConfig).data;
-                const alertsData = Papa.parse(await alertRes.text(), parseConfig).data;
-                const nexusData = Papa.parse(await nexusRes.text(), parseConfig).data;
+                teamDataCache = Papa.parse(await avgRes.text(), parseObjConfig).data;
+                epaDataCache = Papa.parse(await epaRes.text(), parseObjConfig).data;
+                rankingsDataCache = Papa.parse(await rankRes.text(), parseObjConfig).data;
+                const tbaData = Papa.parse(await tbaRes.text(), parseObjConfig).data;
+                const alertsData = Papa.parse(await alertRes.text(), parseObjConfig).data;
+                
+                // Nexus is parsed as an array of arrays
+                const nexusData = Papa.parse(await nexusRes.text(), parseArrConfig).data;
 
                 if (alertsData.length > 0) processPitAlerts(alertsData);
                 
@@ -269,43 +274,47 @@
         function processLiveSchedule(nexus, tba) {
             let fieldMatchStr = '--', targetNumStr = '--', matchesAway = NaN, isRedAlliance = true;
 
-            const keys = Object.keys(nexus[0] || {});
-            const statusCol = keys.find(k => k.toLowerCase().includes('status')) || 'Nexus Status';
-            
-            // Smart Match Column Locator: Looks for "match", "label", "name", or defaults to the very first column (keys[0])
-            const matchCol = keys.find(k => k.toLowerCase().includes('match') || k.toLowerCase().includes('label') || k.toLowerCase().includes('name')) || keys[0];
-            
-            const r1Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'red1') || 'Red 1';
-            const r2Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'red2') || 'Red 2';
-            const r3Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'red3') || 'Red 3';
-            const b1Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'blue1') || 'Blue 1';
-            const b2Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'blue2') || 'Blue 2';
-            const b3Col = keys.find(k => k.toLowerCase().replace(/\s/g, '') === 'blue3') || 'Blue 3';
-
-            // SMART STATUS SEARCH
-            let currentMatchIndex = nexus.findIndex(r => {
-                let s = String(r[statusCol] || '').toLowerCase();
-                return s.includes('on field');
-            });
-
-            if (currentMatchIndex === -1) {
-                currentMatchIndex = nexus.findIndex(r => {
-                    let s = String(r[statusCol] || '').toLowerCase();
-                    return s !== '' && !s.includes('finished');
-                });
+            // Optional: Skip row 0 if it looks like a manual header row
+            let startIndex = 0;
+            if (nexus.length > 0 && typeof nexus[0][0] === 'string' && nexus[0][0].toLowerCase().includes('match')) {
+                startIndex = 1;
             }
 
-            let effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0; 
+            // SMART STATUS SEARCH (Strictly looks at Column 1, which is liveStatus based on your script)
+            let currentMatchIndex = -1;
+            for (let i = startIndex; i < nexus.length; i++) {
+                let s = String(nexus[i][1] || '').toLowerCase();
+                if (s.includes('on field')) {
+                    currentMatchIndex = i;
+                    break;
+                }
+            }
+
+            // If no match is "on field", grab the first match that isn't "finished"
+            if (currentMatchIndex === -1) {
+                for (let i = startIndex; i < nexus.length; i++) {
+                    let s = String(nexus[i][1] || '').toLowerCase();
+                    if (s !== '' && !s.includes('finished')) {
+                        currentMatchIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            let effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : startIndex;
             let currentMatchRow = nexus[effectiveCurrentIndex];
 
+            // FIND 6517 MATCH (Strictly looking at columns 4, 5, 6 for Red and 7, 8, 9 for Blue)
             let nextTeamMatchIndex = -1;
             let nextTeamMatchRow = null;
 
-            for (let i = 0; i < nexus.length; i++) {
+            for (let i = startIndex; i < nexus.length; i++) {
                 const r = nexus[i];
                 const extractNum = val => parseInt(String(val).replace(/\D/g, ''), 10);
-                const redTeams = [r[r1Col], r[r2Col], r[r3Col]].map(extractNum);
-                const blueTeams = [r[b1Col], r[b2Col], r[b3Col]].map(extractNum);
+                
+                // Column indices based on your GAS sheetData.push structure
+                const redTeams = [r[4], r[5], r[6]].map(extractNum);
+                const blueTeams = [r[7], r[8], r[9]].map(extractNum);
                 
                 if (redTeams.includes(TEAM_NUMBER) || blueTeams.includes(TEAM_NUMBER)) {
                     if (i >= effectiveCurrentIndex) {
@@ -321,18 +330,18 @@
                 }
             }
 
-            // *** AGGRESSIVE NUMBER EXTRACTION ***
-            // Strips out all words ("Quals", "Match", "Practice") and finds the LAST set of numbers in the cell.
+            // AGGRESSIVE NUMBER EXTRACTION
             const extractSafeMatchNumber = (val) => {
                 if (!val) return null;
                 const matches = String(val).match(/\d+/g); 
                 return matches ? matches[matches.length - 1] : null;
             };
 
-            if (currentMatchRow) fieldMatchStr = extractSafeMatchNumber(currentMatchRow[matchCol]) || '--';
+            // Grab the match label from Column 0
+            if (currentMatchRow) fieldMatchStr = extractSafeMatchNumber(currentMatchRow[0]) || '--';
 
             if (nextTeamMatchRow) {
-                targetNumStr = extractSafeMatchNumber(nextTeamMatchRow[matchCol]) || '--';
+                targetNumStr = extractSafeMatchNumber(nextTeamMatchRow[0]) || '--';
                 matchesAway = nextTeamMatchIndex - effectiveCurrentIndex;
             }
 
@@ -359,6 +368,8 @@
             if (match) {
                 if (match.redTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; }
                 else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
+            } else {
+                 bumper.innerText = "";
             }
 
             // POP-UP LOGIC
