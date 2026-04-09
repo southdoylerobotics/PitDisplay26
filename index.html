@@ -72,7 +72,6 @@
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <h1 style="font-size: 5rem; margin: 0; color: white;">PREP FOR MATCH</h1>
             <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queueing.</h2>
-            <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #ff9800; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
         </div>
     </div>
 
@@ -163,7 +162,7 @@
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
 
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [];
-        let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
+        let dismissedMatch = -1, userManuallySelected = false, alertTimer = null;
         let announcedQueueMatch = -1, announcedPrepMatch = -1;
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
 
@@ -258,8 +257,8 @@
                 }
             }
 
-            // Overlay Triggers
-            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+            // Overlay Triggers (Removed dismissedPrepMatch logic to force it to stay)
+            if (!isNaN(matchesAway) && matchesAway === 3) {
                 prepOverlay.style.display = "flex";
                 if (announcedPrepMatch !== targetNum) {
                     announceAlert("Prep for match. Bumpers and battery.");
@@ -276,7 +275,7 @@
             } else { document.getElementById('full-screen-warning').style.display = "none"; }
         }
 
-        // STRATEGY & VISUALS (Keep Original)
+        // STRATEGY & VISUALS
         function updateDashboard() {
             const mId = document.getElementById('match-selector').value;
             const match = scheduleData.find(m => m.id == mId);
@@ -344,50 +343,56 @@
 
         // ALERTS & UTILS
         function processPitAlerts(data) {
-    const latest = data[data.length - 1];
-    if (!latest) return;
+            const latest = data[data.length - 1];
+            if (!latest) return;
 
-    // 1. Fuzzy find the columns (handles "Severity", "Severity #", "severity ", etc.)
-    const findValue = (searchTerms) => {
-        const key = Object.keys(latest).find(k => 
-            searchTerms.some(term => k.toLowerCase().trim().includes(term.toLowerCase()))
-        );
-        return key ? latest[key] : null;
-    };
+            // 1. Fuzzy find the columns (handles "Severity", "Severity #", "severity ", etc.)
+            const findValue = (searchTerms) => {
+                const key = Object.keys(latest).find(k => 
+                    searchTerms.some(term => k.toLowerCase().trim().includes(term.toLowerCase()))
+                );
+                return key ? latest[key] : null;
+            };
 
-    const issue = findValue(['Issue', 'description']) || "";
-    const sub = findValue(['Subsystem', 'part']) || "GENERAL";
-    const rawSev = String(findValue(['Severity']) || "0");
-    
-    // 2. Extract the number from the severity string
-    const sev = parseInt(rawSev.replace(/\D/g, '')) || 0;
-    const alertID = issue + sub + sev;
+            const issue = findValue(['Issue', 'description']) || "";
+            const sub = findValue(['Subsystem', 'part']) || "GENERAL";
+            const rawSev = String(findValue(['Severity']) || "0");
+            
+            // 2. Extract the number from the severity string
+            const sev = parseInt(rawSev.replace(/\D/g, '')) || 0;
+            const alertID = issue + sub + sev;
 
-    // 3. Only trigger if it's a new alert and the issue isn't blank
-    if (!seenAlerts.includes(alertID) && issue.trim() !== "") {
-        seenAlerts.push(alertID);
-        localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
+            // 3. Only trigger if it's a new alert and the issue isn't blank
+            if (!seenAlerts.includes(alertID) && issue.trim() !== "") {
+                seenAlerts.push(alertID);
+                localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
 
-        // UPDATE THE UI TEXT
-        document.getElementById('alert-subsystem').innerText = sub.toUpperCase();
-        document.getElementById('alert-issue').innerText = issue;
-        document.getElementById('alert-severity').innerText = "Severity: " + sev;
+                // UPDATE THE UI TEXT
+                document.getElementById('alert-subsystem').innerText = sub.toUpperCase();
+                document.getElementById('alert-issue').innerText = issue;
+                document.getElementById('alert-severity').innerText = "Severity: " + sev;
 
-        const overlay = document.getElementById('match-alert-overlay');
-        
-        // 4. Set background color based on severity
-        if (sev >= 4) {
-            overlay.style.backgroundColor = "black";
-        } else if (sev === 3) {
-            overlay.style.backgroundColor = "#d32f2f"; // Dark Red
-        } else {
-            overlay.style.backgroundColor = "#ff9800"; // Orange
+                const overlay = document.getElementById('match-alert-overlay');
+                
+                // 4. Set background color based on severity
+                if (sev >= 4) {
+                    overlay.style.backgroundColor = "black";
+                } else if (sev === 3) {
+                    overlay.style.backgroundColor = "#d32f2f"; // Dark Red
+                } else {
+                    overlay.style.backgroundColor = "#ff9800"; // Orange
+                }
+
+                overlay.style.display = "flex";
+                
+                // 5. Check if severity is 5 to trigger the custom message
+                if (sev === 5) {
+                    announceAlert("OH NO! DANGER! DANGER! DANGER! New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+                } else {
+                    announceAlert("New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+                }
+            }
         }
-
-        overlay.style.display = "flex";
-        announceAlert("New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
-    }
-}
 
         function announceAlert(text) {
             if ('speechSynthesis' in window) {
@@ -430,7 +435,6 @@
 
         function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = 'none'; }
         function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
-        function dismissPrep() { dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('prep-warning-overlay').style.display = "none"; }
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
