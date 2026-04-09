@@ -44,8 +44,7 @@
         .alert-dismiss:hover { background: white; color: black; }
 
         /* Prep Warning */
-        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: prepFlash 2s infinite; background: rgba(255, 152, 0, 0.95); padding: 20px; }
-        @keyframes prepFlash { 0% { background-color: rgba(255, 140, 0, 0.95); } 50% { background-color: rgba(255, 165, 0, 0.95); } 100% { background-color: rgba(255, 140, 0, 0.95); } }
+        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; background: rgba(255, 152, 0, 0.95); padding: 20px; }
 
         /* Queue Warning */
         .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
@@ -221,7 +220,6 @@
                 const utterance = new SpeechSynthesisUtterance(textToSpeak);
                 const voices = window.speechSynthesis.getVoices();
                 
-                // Prioritize finding a calm, British female voice (like Microsoft Hazel, Google UK English Female, etc.)
                 const preferredVoice = voices.find(v => (v.lang === 'en-GB' || v.name.includes('UK')) && 
                                                         (v.name.includes('Female') || v.name.includes('Hazel') || v.name.includes('Sonia') || v.name.includes('Kate'))) 
                                        || voices.find(v => v.lang === 'en-GB') 
@@ -230,7 +228,6 @@
                 
                 if (preferredVoice) utterance.voice = preferredVoice;
                 
-                // Slightly slower speed for a calmer delivery
                 utterance.rate = 0.85; 
                 utterance.pitch = 1.0; 
                 
@@ -290,26 +287,24 @@
             }
         }
 
-        function dismissPitAlert() {
-            document.getElementById('match-alert-overlay').style.display = "none";
-            if(alertTimer) clearTimeout(alertTimer);
-        }
-
         function processLiveSchedule(live, tba) {
             if (!live || !live[0]) return;
             
-            const fieldMatchKey = Object.keys(live[0]).find(k => k.trim().includes('Current Match Number')) || 'Current Match Number';
-            const fieldMatch = String(live[0][fieldMatchKey] || '');
-            
-            const matchAwayKey = Object.keys(live[0]).find(k => k.trim().includes('Matches Until 6517')) || 'Matches Until 6517';
-            const rawAway = live[0][matchAwayKey];
-            
+            // 1. Fetch from "Match ID" column, row 2 (which is live[0]). Extract only the digits.
+            const rawFieldMatch = String(live[0]['Match ID'] || '');
+            const fieldMatchMatch = rawFieldMatch.match(/\d+/);
+            const currentNum = fieldMatchMatch ? parseInt(fieldMatchMatch[0], 10) : 0;
+
+            // 2. Fetch from "Next 6517 Match" column, row 2 (which is live[0]). Extract only the digits.
+            const rawTargetNum = String(live[0]['Next 6517 Match'] || '');
+            const targetMatchMatch = rawTargetNum.match(/\d+/);
+            const targetNum = targetMatchMatch ? parseInt(targetMatchMatch[0], 10) : 0;
+
+            // 3. Fetch from "Matches Until 6517" column, row 2 (which is live[0]).
+            const rawAway = live[0]['Matches Until 6517'];
             const matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
 
-            const currentNum = parseInt(fieldMatch.match(/\d+/) || [0]);
-            const targetNum = currentNum + (!isNaN(matchesAway) ? matchesAway : 0);
-
-            document.getElementById('field-match').innerText = fieldMatch || '--';
+            document.getElementById('field-match').innerText = currentNum || '--';
             document.getElementById('target-match').innerText = targetNum || '--';
             document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
             document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
@@ -335,20 +330,17 @@
                 if (match.redTeams.includes(TEAM_NUMBER)) { 
                     bumper.innerText = "[RED]"; 
                     bumper.style.color = "var(--red-alliance)"; 
-                    // Set prep background to plain Red, remove the orange flash
                     prepOverlay.style.background = "rgba(211, 47, 47, 0.95)";
                     prepOverlay.style.animation = "none";
                 }
                 else if (match.blueTeams.includes(TEAM_NUMBER)) { 
                     bumper.innerText = "[BLUE]"; 
                     bumper.style.color = "var(--blue-alliance)"; 
-                    // Set prep background to plain Blue, remove the orange flash
                     prepOverlay.style.background = "rgba(25, 118, 210, 0.95)";
                     prepOverlay.style.animation = "none";
                 }
             }
 
-            // PREP WARNING (Only triggers if matchesAway is an actual number AND equals 3)
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
                 prepOverlay.style.display = "flex";
                 if (announcedPrepMatch !== targetNum) {
@@ -359,7 +351,6 @@
                 prepOverlay.style.display = "none";
             }
 
-            // QUEUE WARNING (Only triggers if matchesAway is an actual number AND is 0, 1, or 2)
             if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
                 if (announcedQueueMatch !== targetNum) {
