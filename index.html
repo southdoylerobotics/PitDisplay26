@@ -16,7 +16,7 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* NEW PIT ALERT OVERLAY */
+        /* PIT ALERT OVERLAY */
         .alert-overlay {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             z-index: 10000; display: none; justify-content: center; align-items: center;
@@ -43,18 +43,20 @@
         }
         .alert-dismiss:hover { background: white; color: black; }
 
-        /* Prep Warning */
-        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: prepFlash 2s infinite; background: rgba(255, 152, 0, 0.95); padding: 20px; }
-        @keyframes prepFlash { 0% { background-color: rgba(255, 140, 0, 0.95); } 50% { background-color: rgba(255, 165, 0, 0.95); } 100% { background-color: rgba(255, 140, 0, 0.95); } }
+        /* PREP WARNING (Dynamically Colored) */
+        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: none; justify-content: center; align-items: center; flex-direction: column; padding: 20px; }
+        .prep-overlay.red { animation: prepFlashRed 2s infinite; background: rgba(211, 47, 47, 0.95); }
+        @keyframes prepFlashRed { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
+        .prep-overlay.blue { animation: prepFlashBlue 2s infinite; background: rgba(25, 118, 210, 0.95); }
+        @keyframes prepFlashBlue { 0% { background-color: rgba(25, 118, 210, 0.95); } 50% { background-color: rgba(77, 166, 255, 0.95); } 100% { background-color: rgba(25, 118, 210, 0.95); } }
 
-        /* Queue Warning */
-        .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
+        /* QUEUE WARNING */
+        .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: none; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
         @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
 
-        /* Dashboard Wrapper & Original Styles */
+        /* DASHBOARD WRAPPER & STYLES */
         .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
-        .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        .tab-btn.active { background: var(--gold); color: black; }
+        .tab-btn { background: var(--gold); color: black; border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; pointer-events: none; }
         .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
@@ -85,15 +87,15 @@
         </div>
     </div>
 
-    <div id="prep-warning-overlay" class="prep-overlay" style="display: none;">
+    <div id="prep-warning-overlay" class="prep-overlay red">
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <h1 style="font-size: 5rem; margin: 0; color: white;">PREP FOR MATCH</h1>
-            <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queing.</h2>
+            <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queueing.</h2>
             <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #333; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
         </div>
     </div>
 
-    <div id="full-screen-warning" class="warning-overlay" style="display: none;">
+    <div id="full-screen-warning" class="warning-overlay">
         <div style="text-align: center;">
             <h1 style="font-size: 6rem; margin: 0; color: white;">TIME TO QUEUE!</h1>
             <h2 style="font-size: 3rem;">MATCHES AWAY: <span id="warning-matches-away">--</span></h2>
@@ -102,8 +104,7 @@
     </div>
 
     <div class="nav-tabs">
-        <button class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
-        <button class="tab-btn">MATCH VIDEO REVIEW</button>
+        <button class="tab-btn">STRATEGY DASHBOARD</button>
     </div>
 
     <div id="strategy-tab" class="dashboard-wrapper">
@@ -173,7 +174,6 @@
     <script>
         const TEAM_NUMBER = 6517;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-        const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv";
         const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
         const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
@@ -190,22 +190,21 @@
         async function fetchData() {
             try {
                 const ts = `&t=${Date.now()}`;
-                const [avgRes, liveRes, tbaRes, epaRes, rankRes, alertRes, nexusRes] = await Promise.all([
-                    fetch(AVERAGES_URL+ts), fetch(LIVE_EXPORT_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
+                const [avgRes, tbaRes, epaRes, rankRes, alertRes, nexusRes] = await Promise.all([
+                    fetch(AVERAGES_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
                 ]);
                 
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 epaDataCache = Papa.parse(await epaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 rankingsDataCache = Papa.parse(await rankRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const alertsData = Papa.parse(await alertRes.text(), { header: true, skipEmptyLines: true }).data;
-                const nexusData = Papa.parse(await nexusRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const nexusData = Papa.parse(await nexusRes.text(), { header: true, skipEmptyLines: true }).data;
 
                 if (alertsData.length > 0) processPitAlerts(alertsData);
                 
-                if ((nexusData.length || liveData.length) && tbaData.length) {
-                    processLiveSchedule(liveData, tbaData, nexusData);
+                if (nexusData.length > 0 && tbaData.length > 0) {
+                    processLiveSchedule(nexusData, tbaData);
                     updateDashboard();
                     document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
                 }
@@ -226,7 +225,6 @@
         }
 
         function processPitAlerts(data) {
-            // [Truncated for brevity in reading, kept exactly as you had it]
             if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
             const issueKey = Object.keys(latest).find(k => k.toLowerCase().includes('issue')) || 'Issue';
@@ -264,59 +262,52 @@
             }
         }
 
-        function processLiveSchedule(live, tba, nexus) {
+        function processLiveSchedule(nexus, tba) {
             let fieldMatchStr = '--', targetNumStr = '--', matchesAway = NaN, isRedAlliance = true;
 
-            if (nexus && nexus.length > 0) {
-                // BUGFIX 3: Fuzzy search for exact column keys in case of hidden spaces or capitalization changes
-                const keys = Object.keys(nexus[0]);
-                const statusCol = keys.find(k => k.toLowerCase().includes('status')) || 'Nexus Status';
-                const matchCol = keys.find(k => k.toLowerCase().includes('match key') || k.toLowerCase() === 'match') || 'Match Key';
+            // 1. Find Current Match explicitly looking for "On field"
+            let currentMatchIndex = nexus.findIndex(r => String(r['Nexus Status'] || '').toLowerCase().trim() === 'on field');
+            let effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0; 
+            let currentMatchRow = nexus[effectiveCurrentIndex];
+
+            // 2. Find Next 6517 Match going top to bottom
+            let nextTeamMatchIndex = -1;
+            let nextTeamMatchRow = null;
+
+            for (let i = 0; i < nexus.length; i++) {
+                const r = nexus[i];
+                const extractNum = val => parseInt(String(val).replace(/\D/g, ''), 10);
+                const redTeams = [r['Red 1'], r['Red 2'], r['Red 3']].map(extractNum);
+                const blueTeams = [r['Blue 1'], r['Blue 2'], r['Blue 3']].map(extractNum);
                 
-                // Find Current Field Match (First row that is NOT finished)
-                const currentMatchIndex = nexus.findIndex(r => {
-                    const status = String(r[statusCol] || '').toLowerCase().trim();
-                    return status !== '' && !status.includes('finished');
-                });
-                
-                const effectiveCurrentIndex = currentMatchIndex !== -1 ? currentMatchIndex : 0;
-                const currentMatchRow = nexus[effectiveCurrentIndex];
-                
-                // Find Next 6517 Match
-                let nextTeamMatchIndex = -1, nextTeamMatchRow = null;
-                for (let i = effectiveCurrentIndex; i < nexus.length; i++) {
-                    const r = nexus[i];
-                    // BUGFIX 1: Strip "frc" prefix and spaces so "frc6517" properly equals 6517
-                    const extractNum = val => parseInt(String(val).replace(/\D/g, ''), 10);
-                    const hasTeam = [r['Red 1'], r['Red 2'], r['Red 3'], r['Blue 1'], r['Blue 2'], r['Blue 3']]
-                        .map(extractNum).includes(TEAM_NUMBER);
-                    
-                    if (hasTeam) { nextTeamMatchIndex = i; nextTeamMatchRow = r; break; }
+                if (redTeams.includes(TEAM_NUMBER) || blueTeams.includes(TEAM_NUMBER)) {
+                    // Grab the first instance that hasn't happened yet relative to the current match
+                    if (i >= effectiveCurrentIndex) {
+                        nextTeamMatchIndex = i;
+                        nextTeamMatchRow = r;
+                        isRedAlliance = redTeams.includes(TEAM_NUMBER);
+                        break;
+                    } else if (nextTeamMatchIndex === -1) {
+                        // Fallback just in case
+                        nextTeamMatchIndex = i;
+                        nextTeamMatchRow = r;
+                        isRedAlliance = redTeams.includes(TEAM_NUMBER);
+                    }
                 }
+            }
 
-                // BUGFIX 2: Smart Extractor (turns "2024txhou_qm15" into "15")
-                const extractSafeMatchNumber = (val) => {
-                    if (!val) return null;
-                    const parts = String(val).split('_'); 
-                    const match = parts[parts.length - 1].match(/\d+/); 
-                    return match ? match[0] : null;
-                };
+            const extractSafeMatchNumber = (val) => {
+                if (!val) return null;
+                const parts = String(val).split('_'); 
+                const match = parts[parts.length - 1].match(/\d+/); 
+                return match ? match[0] : null;
+            };
 
-                if (currentMatchRow) fieldMatchStr = extractSafeMatchNumber(currentMatchRow[matchCol]) || '--';
+            if (currentMatchRow) fieldMatchStr = extractSafeMatchNumber(currentMatchRow['Match Key']) || '--';
 
-                if (nextTeamMatchRow) {
-                    targetNumStr = extractSafeMatchNumber(nextTeamMatchRow[matchCol]) || '--';
-                    matchesAway = nextTeamMatchIndex - effectiveCurrentIndex;
-                    
-                    const redTeams = [nextTeamMatchRow['Red 1'], nextTeamMatchRow['Red 2'], nextTeamMatchRow['Red 3']]
-                        .map(val => parseInt(String(val).replace(/\D/g, ''), 10));
-                    isRedAlliance = redTeams.includes(TEAM_NUMBER);
-                }
-
-                // BACKGROUND LOGGING (Press F12 in browser to see this if it fails again!)
-                console.log(`[DEBUG] Current Index: ${effectiveCurrentIndex}, Target Index: ${nextTeamMatchIndex}`);
-                console.log(`[DEBUG] Status Col Used: "${statusCol}", Match Col Used: "${matchCol}"`);
-                console.log(`[DEBUG] Matches Away Calculation: ${matchesAway}`);
+            if (nextTeamMatchRow) {
+                targetNumStr = extractSafeMatchNumber(nextTeamMatchRow['Match Key']) || '--';
+                matchesAway = nextTeamMatchIndex - effectiveCurrentIndex;
             }
 
             const targetNum = parseInt(targetNumStr);
@@ -344,25 +335,34 @@
                 else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
             }
 
-            // UI WARNINGS
+            // POP-UP LOGIC
+            
+            // 3 Matches Away: Prep Screen (Bumpers & Battery)
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
                 const prepOverlay = document.getElementById('prep-warning-overlay');
+                // Dynamically change class for red/blue backgrounds
+                prepOverlay.className = isRedAlliance ? 'prep-overlay red' : 'prep-overlay blue';
                 prepOverlay.style.display = "flex";
-                prepOverlay.style.animation = "none"; 
-                prepOverlay.style.backgroundColor = isRedAlliance ? "rgba(211, 47, 47, 0.98)" : "rgba(25, 118, 210, 0.98)";
+
                 if (announcedPrepMatch !== targetNum) {
                     announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
                     announcedPrepMatch = targetNum;
                 }
-            } else { document.getElementById('prep-warning-overlay').style.display = "none"; }
+            } else { 
+                document.getElementById('prep-warning-overlay').style.display = "none"; 
+            }
 
+            // 2 Matches Away: Queueing Screen
             if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
+
                 if (announcedQueueMatch !== targetNum) {
                     announceAlert("Now Queueing");
                     announcedQueueMatch = targetNum;
                 }
-            } else { document.getElementById('full-screen-warning').style.display = "none"; }
+            } else { 
+                document.getElementById('full-screen-warning').style.display = "none"; 
+            }
         }
 
         function updateDashboard() {
@@ -409,7 +409,6 @@
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
         function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
         function dismissPrep() { dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('prep-warning-overlay').style.display = "none"; }
-        function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
         fetchData(); setInterval(fetchData, 5000); 
     </script>
