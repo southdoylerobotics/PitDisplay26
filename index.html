@@ -391,10 +391,42 @@
 
         function announceAlert(text) {
             if ('speechSynthesis' in window) {
+                // Cancel any current speech so it doesn't queue up forever
+                window.speechSynthesis.cancel();
+        
                 const msg = new SpeechSynthesisUtterance(text);
+                
+                // Get all available voices
+                const voices = window.speechSynthesis.getVoices();
+        
+                // 1. Try to find a specific British Female voice
+                // We look for 'en-GB' and exclude 'Male' if possible
+                let britishVoice = voices.find(v => 
+                    v.lang.includes('en-GB') && 
+                    (v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Hazel') || v.name.includes('Susan'))
+                );
+        
+                // 2. Fallback to any British voice if the specific female one isn't found
+                if (!britishVoice) {
+                    britishVoice = voices.find(v => v.lang.includes('en-GB'));
+                }
+        
+                if (britishVoice) {
+                    msg.voice = britishVoice;
+                }
+        
+                // Set properties for a "calming" effect
+                msg.pitch = 1.0;  // Normal pitch
+                msg.rate = 0.9;   // Slightly slower than normal for a calmer feel
+                msg.volume = 1.0; // Full volume
+        
                 window.speechSynthesis.speak(msg);
             }
         }
+
+        // CRITICAL: Some browsers don't load voices immediately. 
+        // This "dummy" call forces the browser to load the voice list.
+        window.speechSynthesis.getVoices();
 
         function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = 'none'; }
         function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
