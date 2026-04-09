@@ -105,7 +105,6 @@
 
     <div class="nav-tabs">
         <button class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
-        <button class="tab-btn">MATCH VIDEO REVIEW</button>
     </div>
 
     <div id="strategy-tab" class="dashboard-wrapper">
@@ -222,13 +221,18 @@
                 const utterance = new SpeechSynthesisUtterance(textToSpeak);
                 const voices = window.speechSynthesis.getVoices();
                 
-                const preferredVoice = voices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.name.includes('UK') || v.name.includes('Australia')) 
+                // Prioritize finding a calm, British female voice (like Microsoft Hazel, Google UK English Female, etc.)
+                const preferredVoice = voices.find(v => (v.lang === 'en-GB' || v.name.includes('UK')) && 
+                                                        (v.name.includes('Female') || v.name.includes('Hazel') || v.name.includes('Sonia') || v.name.includes('Kate'))) 
+                                       || voices.find(v => v.lang === 'en-GB') 
                                        || voices.find(v => v.lang.startsWith('en')) 
                                        || voices[0];
                 
                 if (preferredVoice) utterance.voice = preferredVoice;
+                
+                // Slightly slower speed for a calmer delivery
                 utterance.rate = 0.85; 
-                utterance.pitch = 0.9;
+                utterance.pitch = 1.0; 
                 
                 window.speechSynthesis.speak(utterance);
             }
@@ -294,14 +298,12 @@
         function processLiveSchedule(live, tba) {
             if (!live || !live[0]) return;
             
-            // Defensively grab keys to prevent whitespace typo bugs
             const fieldMatchKey = Object.keys(live[0]).find(k => k.trim().includes('Current Match Number')) || 'Current Match Number';
             const fieldMatch = String(live[0][fieldMatchKey] || '');
             
             const matchAwayKey = Object.keys(live[0]).find(k => k.trim().includes('Matches Until 6517')) || 'Matches Until 6517';
             const rawAway = live[0][matchAwayKey];
             
-            // Only convert to a number if it is definitively a number. Otherwise, leave it as NaN (Not a Number)
             const matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
 
             const currentNum = parseInt(fieldMatch.match(/\d+/) || [0]);
@@ -327,20 +329,34 @@
 
             const match = scheduleData.find(m => m.id === targetNum);
             const bumper = document.getElementById('bumper-color');
+            const prepOverlay = document.getElementById('prep-warning-overlay');
+
             if (match) {
-                if (match.redTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; }
-                else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
+                if (match.redTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[RED]"; 
+                    bumper.style.color = "var(--red-alliance)"; 
+                    // Set prep background to plain Red, remove the orange flash
+                    prepOverlay.style.background = "rgba(211, 47, 47, 0.95)";
+                    prepOverlay.style.animation = "none";
+                }
+                else if (match.blueTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[BLUE]"; 
+                    bumper.style.color = "var(--blue-alliance)"; 
+                    // Set prep background to plain Blue, remove the orange flash
+                    prepOverlay.style.background = "rgba(25, 118, 210, 0.95)";
+                    prepOverlay.style.animation = "none";
+                }
             }
 
             // PREP WARNING (Only triggers if matchesAway is an actual number AND equals 3)
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
-                document.getElementById('prep-warning-overlay').style.display = "flex";
+                prepOverlay.style.display = "flex";
                 if (announcedPrepMatch !== targetNum) {
                     announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
                     announcedPrepMatch = targetNum;
                 }
             } else {
-                document.getElementById('prep-warning-overlay').style.display = "none";
+                prepOverlay.style.display = "none";
             }
 
             // QUEUE WARNING (Only triggers if matchesAway is an actual number AND is 0, 1, or 2)
