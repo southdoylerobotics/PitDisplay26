@@ -195,8 +195,6 @@
                 ]);
                 
                 const parseObjConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
-                
-                // IMPORTANT: We treat Nexus as a raw array (NO headers) so we can look at it strictly by column position.
                 const parseArrConfig = { header: false, dynamicTyping: true, skipEmptyLines: true };
 
                 teamDataCache = Papa.parse(await avgRes.text(), parseObjConfig).data;
@@ -204,9 +202,15 @@
                 rankingsDataCache = Papa.parse(await rankRes.text(), parseObjConfig).data;
                 const tbaData = Papa.parse(await tbaRes.text(), parseObjConfig).data;
                 const alertsData = Papa.parse(await alertRes.text(), parseObjConfig).data;
-                
-                // Nexus is parsed as an array of arrays
                 const nexusData = Papa.parse(await nexusRes.text(), parseArrConfig).data;
+
+                // --- DEBUGGER ---
+                console.log("RAW NEXUS DATA:", nexusData);
+                if (nexusData.length > 0 && !window.hasAlertedNexus) {
+                    window.hasAlertedNexus = true; // only alert once
+                    console.log("First Row of Nexus:", nexusData[0]);
+                    console.log("Second Row of Nexus:", nexusData[1]);
+                }
 
                 if (alertsData.length > 0) processPitAlerts(alertsData);
                 
@@ -214,12 +218,14 @@
                     processLiveSchedule(nexusData, tbaData);
                     updateDashboard();
                     document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+                } else {
+                    document.getElementById('status-text').innerText = "No Data Found in Sheets!";
                 }
             } catch (e) { 
-                console.error("Error fetching data:", e); 
+                console.error("CRITICAL ERROR FETCHING DATA:", e); 
+                document.getElementById('status-text').innerText = "Error: " + e.message;
             }
         }
-
         function announceAlert(customText) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); 
@@ -258,19 +264,45 @@
                 const overlay = document.getElementById('match-alert-overlay');
                 const sevEl = document.getElementById('alert-severity');
                 const sevMatch = rawSev.match(/\d+/);
-                const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
+                const sasync function fetchData() {
+            try {
+                const ts = `&t=${Date.now()}`;
+                const [avgRes, tbaRes, epaRes, rankRes, alertRes, nexusRes] = await Promise.all([
+                    fetch(AVERAGES_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
+                ]);
                 
-                sevEl.innerText = rawSev === "" ? "Severity: N/A" : `Severity: ${sev}`;
-                const colors = {1:"#2196F3", 2:"#4CAF50", 3:"#FF9800", 4:"#F44336"};
-                overlay.style.backgroundColor = rawSev === "" ? "#004d00" : (colors[sev] || "#000000");
+                const parseObjConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
+                const parseArrConfig = { header: false, dynamicTyping: true, skipEmptyLines: true };
+
+                teamDataCache = Papa.parse(await avgRes.text(), parseObjConfig).data;
+                epaDataCache = Papa.parse(await epaRes.text(), parseObjConfig).data;
+                rankingsDataCache = Papa.parse(await rankRes.text(), parseObjConfig).data;
+                const tbaData = Papa.parse(await tbaRes.text(), parseObjConfig).data;
+                const alertsData = Papa.parse(await alertRes.text(), parseObjConfig).data;
+                const nexusData = Papa.parse(await nexusRes.text(), parseArrConfig).data;
+
+                // --- DEBUGGER ---
+                console.log("RAW NEXUS DATA:", nexusData);
+                if (nexusData.length > 0 && !window.hasAlertedNexus) {
+                    window.hasAlertedNexus = true; // only alert once
+                    console.log("First Row of Nexus:", nexusData[0]);
+                    console.log("Second Row of Nexus:", nexusData[1]);
+                }
+
+                if (alertsData.length > 0) processPitAlerts(alertsData);
                 
-                overlay.style.display = "flex";
-                announceAlert();
-                if(alertTimer) clearTimeout(alertTimer);
-                alertTimer = setTimeout(dismissPitAlert, 150000); 
+                if (nexusData.length > 0 && tbaData.length > 0) {
+                    processLiveSchedule(nexusData, tbaData);
+                    updateDashboard();
+                    document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
+                } else {
+                    document.getElementById('status-text').innerText = "No Data Found in Sheets!";
+                }
+            } catch (e) { 
+                console.error("CRITICAL ERROR FETCHING DATA:", e); 
+                document.getElementById('status-text').innerText = "Error: " + e.message;
             }
         }
-
         function processLiveSchedule(nexus, tba) {
             let fieldMatchStr = '--', targetNumStr = '--', matchesAway = NaN, isRedAlliance = true;
 
