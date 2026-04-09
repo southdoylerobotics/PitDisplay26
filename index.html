@@ -180,6 +180,9 @@
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
         const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
+        
+        // NEW NEXUS QUEUING SOURCE
+        const NEXUS_QUEUING_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=995335638&single=true&output=csv";
 
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
         let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
@@ -194,8 +197,8 @@
         async function fetchData() {
             try {
                 const ts = `&t=${Date.now()}`;
-                const [avgRes, liveRes, tbaRes, epaRes, rankRes, alertRes] = await Promise.all([
-                    fetch(AVERAGES_URL+ts), fetch(LIVE_EXPORT_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts)
+                const [avgRes, liveRes, tbaRes, epaRes, rankRes, alertRes, nexusRes] = await Promise.all([
+                    fetch(AVERAGES_URL+ts), fetch(LIVE_EXPORT_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts), fetch(NEXUS_QUEUING_URL+ts)
                 ]);
                 
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
@@ -204,10 +207,13 @@
                 const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const alertsData = Papa.parse(await alertRes.text(), { header: true, skipEmptyLines: true }).data;
+                const nexusData = Papa.parse(await nexusRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
 
                 if (alertsData.length > 0) processPitAlerts(alertsData);
-                if (liveData.length && tbaData.length) {
-                    processLiveSchedule(liveData, tbaData);
+                
+                // Allow proceeding if we have either Nexus data or Live data, plus TBA data
+                if ((nexusData.length || liveData.length) && tbaData.length) {
+                    processLiveSchedule(liveData, tbaData, nexusData);
                     updateDashboard();
                     document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
                 }
@@ -286,20 +292,17 @@
             }
         }
 
-        function dismissPitAlert() {
-            document.getElementById('match-alert-overlay').style.display = "none";
-            if(alertTimer) clearTimeout(alertTimer);
-        }
-
-        function processLiveSchedule(live, tba) {
-            if (!live || !live[0]) return;
+        function processLiveSchedule(live, tba, nexus) {
+            // Prioritize Nexus data for queuing if available, fallback to live export data just in case
+            const queueSource = (nexus && nexus.length > 0) ? nexus[0] : (live && live.length > 0 ? live[0] : null);
+            if (!queueSource) return;
             
             // Defensively grab keys to prevent whitespace typo bugs
-            const fieldMatchKey = Object.keys(live[0]).find(k => k.trim().includes('Current Match Number')) || 'Current Match Number';
-            const fieldMatch = String(live[0][fieldMatchKey] || '');
+            const fieldMatchKey = Object.keys(queueSource).find(k => k.trim().includes('Current Match Number')) || 'Current Match Number';
+            const fieldMatch = String(queueSource[fieldMatchKey] || '');
             
-            const matchAwayKey = Object.keys(live[0]).find(k => k.trim().includes('Matches Until 6517')) || 'Matches Until 6517';
-            const rawAway = live[0][matchAwayKey];
+            const matchAwayKey = Object.keys(queueSource).find(k => k.trim().includes('Matches Until 6517')) || 'Matches Until 6517';
+            const rawAway = queueSource[matchAwayKey];
             
             // Only convert to a number if it is definitively a number. Otherwise, leave it as NaN (Not a Number)
             const matchesAway = (rawAway !== "" && rawAway !== null && rawAway !== undefined) ? Number(rawAway) : NaN;
