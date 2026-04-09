@@ -212,13 +212,7 @@
                     fetch(NEXUS_QUEUING_URL + ts)
                 ]);
                 
-                // All CSVs (including Nexus) parsed strictly as objects with headers
-                const parseObjConfig = { 
-                    header: true, 
-                    dynamicTyping: true, 
-                    skipEmptyLines: true, 
-                    transformHeader: h => h ? h.trim() : h 
-                };
+                const parseObjConfig = { header: true, dynamicTyping: true, skipEmptyLines: true, transformHeader: h => h ? h.trim() : h };
 
                 teamDataCache = Papa.parse(await avgRes.text(), parseObjConfig).data;
                 epaDataCache = Papa.parse(await epaRes.text(), parseObjConfig).data;
@@ -228,9 +222,7 @@
                 const alertsData = Papa.parse(await alertRes.text(), parseObjConfig).data;
                 const nexusData = Papa.parse(await nexusRes.text(), parseObjConfig).data;
 
-                if (alertsData.length > 0) {
-                    processPitAlerts(alertsData);
-                }
+                if (alertsData.length > 0) processPitAlerts(alertsData);
                 
                 if (nexusData.length > 0 && tbaData.length > 0) {
                     processLiveSchedule(nexusData, tbaData);
@@ -245,32 +237,46 @@
             }
         }
 
+        // ==========================================
+        // 1. BRITISH FEMALE VOICE FIX
+        // ==========================================
         function announceAlert(customText) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel(); 
                 const utterance = new SpeechSynthesisUtterance(customText || "New Match Alert");
                 const voices = window.speechSynthesis.getVoices();
-                utterance.voice = voices.find(v => v.lang.startsWith('en')) || voices[0];
-                utterance.rate = 0.85; 
-                utterance.pitch = 0.9;
+                
+                // Specifically hunt for a British Female Voice
+                let ukVoice = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Female') || v.name.includes('Google UK English Female') || v.name.includes('Serena')));
+                
+                // Fallbacks if exact name isn't found
+                if (!ukVoice) ukVoice = voices.find(v => v.lang === 'en-GB'); 
+                if (!ukVoice) ukVoice = voices.find(v => v.name.includes('Female') || v.name.includes('female'));
+                
+                // Apply the voice, or default back if nothing is found
+                utterance.voice = ukVoice || voices.find(v => v.lang.startsWith('en')) || voices[0];
+                
+                utterance.rate = 0.85; // Calming, slightly slower speed
+                utterance.pitch = 1.1; // Slightly higher pitch
                 window.speechSynthesis.speak(utterance);
             }
         }
+
+        // Helper function for fuzzy matching columns
+        const getColumnValue = (row, searchKeyword) => {
+            if (!row) return null;
+            const key = Object.keys(row).find(k => k.toLowerCase().includes(searchKeyword.toLowerCase()));
+            return key ? row[key] : null;
+        };
 
         function processPitAlerts(data) {
             if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
             
-            const keys = Object.keys(latest);
-            const issueKey = keys.find(k => k.toLowerCase().includes('issue')) || 'Issue';
-            const subKey = keys.find(k => k.toLowerCase().includes('subsystem')) || 'Subsystem';
-            const sevKey = keys.find(k => k.toLowerCase().includes('severity')) || 'Severity #';
-            const timeKey = keys.find(k => k.toLowerCase().includes('timestamp') || k.toLowerCase().includes('time')) || '';
-
-            const rawIssue = latest[issueKey] ? String(latest[issueKey]).trim() : "";
-            const rawSub = latest[subKey] ? String(latest[subKey]).trim() : "GENERAL";
-            const rawSev = latest[sevKey] ? String(latest[sevKey]).trim() : "";
-            const rawTime = timeKey && latest[timeKey] ? String(latest[timeKey]).trim() : "";
+            const rawIssue = String(getColumnValue(latest, 'issue') || "").trim();
+            const rawSub = String(getColumnValue(latest, 'subsystem') || "GENERAL").trim();
+            const rawSev = String(getColumnValue(latest, 'severity') || "").trim();
+            const rawTime = String(getColumnValue(latest, 'time') || "").trim();
             const alertID = rawTime + "|" + rawIssue + "|" + rawSub + "|" + rawSev;
 
             if (!seenAlerts.includes(alertID)) {
@@ -297,6 +303,9 @@
             }
         }
 
+        // ==========================================
+        // 2. FUZZY MATCHING FOR STUCK NUMBERS FIX
+        // ==========================================
         function processLiveSchedule(nexus, tba) {
             let fieldMatchStr = '--';
             let targetNumStr = '--';
@@ -305,20 +314,19 @@
 
             let currentMatchIndex = -1;
             
-            // Search for "on field" based on Status column
+            // Look for "on field" in the status column (ignoring case/spaces in header)
             for (let i = 0; i < nexus.length; i++) {
-                let status = String(nexus[i]['Status'] || '').toLowerCase();
-                if (status.includes('on field')) {
+                let statusVal = String(getColumnValue(nexus[i], 'status') || '').toLowerCase();
+                if (statusVal.includes('on field')) {
                     currentMatchIndex = i;
                     break;
                 }
             }
 
-            // Fallback if none are on field
             if (currentMatchIndex === -1) {
                 for (let i = 0; i < nexus.length; i++) {
-                    let status = String(nexus[i]['Status'] || '').toLowerCase();
-                    if (status !== '' && !status.includes('finished')) {
+                    let statusVal = String(getColumnValue(nexus[i], 'status') || '').toLowerCase();
+                    if (statusVal !== '' && !statusVal.includes('finished')) {
                         currentMatchIndex = i;
                         break;
                     }
@@ -335,8 +343,14 @@
                 const r = nexus[i];
                 const extractNum = (val) => parseInt(String(val).replace(/\D/g, ''), 10);
                 
-                const redTeams = [r['Red 1'], r['Red 2'], r['Red 3']].map(extractNum);
-                const blueTeams = [r['Blue 1'], r['Blue 2'], r['Blue 3']].map(extractNum);
+                // Fuzzy match the red/blue column names
+                const redTeams = [
+                    getColumnValue(r, 'red 1'), getColumnValue(r, 'red 2'), getColumnValue(r, 'red 3')
+                ].map(extractNum);
+                
+                const blueTeams = [
+                    getColumnValue(r, 'blue 1'), getColumnValue(r, 'blue 2'), getColumnValue(r, 'blue 3')
+                ].map(extractNum);
                 
                 if (redTeams.includes(TEAM_NUMBER) || blueTeams.includes(TEAM_NUMBER)) {
                     if (i >= effectiveCurrentIndex) {
@@ -358,15 +372,12 @@
                 return matches ? matches[matches.length - 1] : null;
             };
 
-            // Assuming standard column keys like "Match Name" or similar fallback
-            const matchNameKey = Object.keys(nexus[0] || {}).find(k => k.toLowerCase().includes('match')) || 'Match Name';
-
             if (currentMatchRow) {
-                fieldMatchStr = extractSafeMatchNumber(currentMatchRow[matchNameKey]) || '--';
+                fieldMatchStr = extractSafeMatchNumber(getColumnValue(currentMatchRow, 'match')) || '--';
             }
 
             if (nextTeamMatchRow) {
-                targetNumStr = extractSafeMatchNumber(nextTeamMatchRow[matchNameKey]) || '--';
+                targetNumStr = extractSafeMatchNumber(getColumnValue(nextTeamMatchRow, 'match')) || '--';
                 matchesAway = nextTeamMatchIndex - effectiveCurrentIndex;
             }
 
@@ -378,9 +389,9 @@
 
             scheduleData = tba.map(row => {
                 return {
-                    id: Number(row['Match Number']),
-                    redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
-                    blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
+                    id: Number(getColumnValue(row, 'number')),
+                    redTeams: [Number(getColumnValue(row, 'red 1')), Number(getColumnValue(row, 'red 2')), Number(getColumnValue(row, 'red 3'))],
+                    blueTeams: [Number(getColumnValue(row, 'blue 1')), Number(getColumnValue(row, 'blue 2')), Number(getColumnValue(row, 'blue 3'))]
                 };
             }).filter(m => m.id);
 
@@ -435,16 +446,16 @@
             if (!match) return;
 
             const getT = (n) => {
-                return teamDataCache.find(t => Number(t['Team Number']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
+                return teamDataCache.find(t => Number(getColumnValue(t, 'team')) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
             };
             
             const getRank = (n) => {
-                return rankingsDataCache.find(t => Number(t['Team']) === n) || { Rank: '--' };
+                return rankingsDataCache.find(t => Number(getColumnValue(t, 'team')) === n) || { Rank: '--' };
             };
             
             const getEPA = (n) => { 
-                const t = epaDataCache.find(x => Number(x['Team']) === n); 
-                return t ? Number(t['Total EPA']) : 0; 
+                const t = epaDataCache.find(x => Number(getColumnValue(x, 'team')) === n); 
+                return t ? Number(getColumnValue(t, 'total epa')) : 0; 
             };
 
             let rEPA = 0;
@@ -468,21 +479,21 @@
             const bD = match.blueTeams.map(getT);
             
             let redTotalEst = 0;
-            rD.forEach(t => redTotalEst += (t['Avg Total'] || 0));
+            rD.forEach(t => redTotalEst += (parseFloat(getColumnValue(t, 'avg total')) || 0));
             document.getElementById('red-total-potential').innerText = redTotalEst.toFixed(1);
             
             let blueTotalEst = 0;
-            bD.forEach(t => blueTotalEst += (t['Avg Total'] || 0));
+            bD.forEach(t => blueTotalEst += (parseFloat(getColumnValue(t, 'avg total')) || 0));
             document.getElementById('blue-total-potential').innerText = blueTotalEst.toFixed(1);
 
             let redTableHTML = `<tr><th>Team</th><th>Auto</th><th>Tele</th><th>End</th><th>Total</th></tr>`;
             match.redTeams.forEach((n, i) => {
                 redTableHTML += `<tr>
                     <td style="color:var(--gold); font-weight:bold;">${n}</td>
-                    <td>${(rD[i]['Avg Auto']||0).toFixed(1)}</td>
-                    <td>${(rD[i]['Avg Teleop']||0).toFixed(1)}</td>
-                    <td>${(rD[i]['Avg Endgame']||0).toFixed(1)}</td>
-                    <td>${(rD[i]['Avg Total']||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(rD[i], 'avg auto'))||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(rD[i], 'avg teleop'))||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(rD[i], 'avg endgame'))||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(rD[i], 'avg total'))||0).toFixed(1)}</td>
                 </tr>`;
             });
             document.getElementById('red-table-body').innerHTML = redTableHTML;
@@ -491,10 +502,10 @@
             match.blueTeams.forEach((n, i) => {
                 blueTableHTML += `<tr>
                     <td style="color:var(--gold); font-weight:bold;">${n}</td>
-                    <td>${(bD[i]['Avg Auto']||0).toFixed(1)}</td>
-                    <td>${(bD[i]['Avg Teleop']||0).toFixed(1)}</td>
-                    <td>${(bD[i]['Avg Endgame']||0).toFixed(1)}</td>
-                    <td>${(bD[i]['Avg Total']||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(bD[i], 'avg auto'))||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(bD[i], 'avg teleop'))||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(bD[i], 'avg endgame'))||0).toFixed(1)}</td>
+                    <td>${(parseFloat(getColumnValue(bD[i], 'avg total'))||0).toFixed(1)}</td>
                 </tr>`;
             });
             document.getElementById('blue-table-body').innerHTML = blueTableHTML;
@@ -503,9 +514,9 @@
             if(charts.rN) charts.rN.destroy(); 
             if(charts.bN) charts.bN.destroy();
             
-            const sum = (d, k) => {
+            const sum = (d, keyStr) => {
                 let total = 0;
-                d.forEach(t => total += (parseFloat(t[k]) || 0));
+                d.forEach(t => total += (parseFloat(getColumnValue(t, keyStr)) || 0));
                 return total;
             };
 
@@ -514,9 +525,9 @@
                 data: { 
                     labels: ['Red', 'Blue'], 
                     datasets: [
-                        { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' }, 
-                        { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' }, 
-                        { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
+                        { label: 'Auto', data: [sum(rD, 'avg auto'), sum(bD, 'avg auto')], backgroundColor: '#FFD700' }, 
+                        { label: 'Tele', data: [sum(rD, 'avg teleop'), sum(bD, 'avg teleop')], backgroundColor: '#42a5f5' }, 
+                        { label: 'End', data: [sum(rD, 'avg endgame'), sum(bD, 'avg endgame')], backgroundColor: '#66bb6a' }
                     ]
                 }, 
                 options: { 
@@ -536,8 +547,8 @@
                     data: { 
                         labels: labs, 
                         datasets: [
-                            { label: 'Bump', data: dat.map(d => (parseFloat(d['Bump %']) || 0) * 100), backgroundColor: '#ef5350' }, 
-                            { label: 'Trench', data: dat.map(d => (parseFloat(d['Trench %']) || 0) * 100), backgroundColor: '#ab47bc' }
+                            { label: 'Bump', data: dat.map(d => (parseFloat(getColumnValue(d, 'bump %')) || 0) * 100), backgroundColor: '#ef5350' }, 
+                            { label: 'Trench', data: dat.map(d => (parseFloat(getColumnValue(d, 'trench %')) || 0) * 100), backgroundColor: '#ab47bc' }
                         ]
                     }, 
                     options: { 
@@ -561,10 +572,10 @@
                 let deathsHTML = "";
                 
                 list.forEach(n => {
-                    const rankStr = getRank(n).Rank;
-                    const teamDat = D.find(t => Number(t['Team Number']) === n);
-                    const citrusVal = (teamDat && teamDat["Avg Citrus"]) ? teamDat["Avg Citrus"] : 1;
-                    const deathsVal = (teamDat && teamDat["Total Times Died"]) ? teamDat["Total Times Died"] : 0;
+                    const rankStr = getColumnValue(getRank(n), 'rank') || '--';
+                    const teamDat = D.find(t => Number(getColumnValue(t, 'team')) === n);
+                    const citrusVal = parseFloat(getColumnValue(teamDat, 'citrus')) || 1;
+                    const deathsVal = parseFloat(getColumnValue(teamDat, 'died')) || 0;
                     
                     citrusHTML += `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">R:${rankStr} C:${citrusVal.toFixed(1)}</div>`;
                     deathsHTML += `<div class="death-badge" style="background:#b71c1c; color:white; font-size:0.7rem;">D:${deathsVal}</div>`;
