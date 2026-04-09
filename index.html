@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>6517 Pit Strategy & Video Review</title>
+    <title>6517 Pit Strategy & Alerts</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
@@ -16,41 +16,50 @@
         * { box-sizing: border-box; }
         html, body { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; background-color: var(--bg-color); color: var(--text); font-family: 'Segoe UI', sans-serif; }
         
-        /* ALERTS & OVERLAYS (Unchanged) */
-        .alert-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10000; display: none; justify-content: center; align-items: center; flex-direction: column; text-align: center; padding: 20px; }
-        .alert-content { width: 100%; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        /* NEW PIT ALERT OVERLAY */
+        .alert-overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: 10000; display: none; justify-content: center; align-items: center;
+            flex-direction: column; text-align: center;
+            padding: 20px;
+        }
+        .alert-content { 
+            width: 100%; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 15px;
+        }
         .alert-title { font-size: 2rem; font-weight: 900; margin: 0; color: white; text-transform: uppercase; }
         .alert-subsystem { font-size: 3rem; color: white; text-transform: uppercase; font-weight: bold; margin: 0; }
-        .alert-severity-tag { font-size: 2.5rem; padding: 10px 40px; display: inline-block; margin: 10px 0; color: white; font-weight: 900; border: 3px solid white; border-radius: 15px; }
-        .alert-issue { font-size: 3.5rem; font-weight: bold; color: white; line-height: 1.2; width: 100%; white-space: normal; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word; margin: 15px 0; padding: 0 10px; }
-        .alert-dismiss { margin-top: 20px; font-size: 1.5rem; padding: 15px 40px; cursor: pointer; background: transparent; border: 3px solid white; font-weight: bold; border-radius: 10px; color: white; transition: 0.2s; }
+        .alert-severity-tag { 
+            font-size: 2.5rem; padding: 10px 40px; display: inline-block; margin: 10px 0; 
+            color: white; font-weight: 900; border: 3px solid white; border-radius: 15px;
+        }
+        .alert-issue { 
+            font-size: 3.5rem; font-weight: bold; color: white; line-height: 1.2; width: 100%;
+            white-space: normal; word-wrap: break-word; overflow-wrap: break-word; word-break: break-word;
+            margin: 15px 0; padding: 0 10px;
+        }
+        .alert-dismiss { 
+            margin-top: 20px; font-size: 1.5rem; padding: 15px 40px; cursor: pointer; 
+            background: transparent; border: 3px solid white; font-weight: bold; border-radius: 10px; color: white; transition: 0.2s;
+        }
         .alert-dismiss:hover { background: white; color: black; }
+
+        /* Queue Warning */
         .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
         @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
+
+        /* Prep Warning */
         .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: prepFlash 2s infinite; background: rgba(255, 152, 0, 0.95); padding: 20px; }
         @keyframes prepFlash { 0% { background-color: rgba(255, 140, 0, 0.95); } 50% { background-color: rgba(255, 165, 0, 0.95); } 100% { background-color: rgba(255, 140, 0, 0.95); } }
 
-        /* NAV TABS */
-        .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; flex: none; }
+        /* Dashboard Wrapper & Original Styles */
+        .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
         .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
         .tab-btn.active { background: var(--gold); color: black; }
-
-        /* DASHBOARD CONTENT */
         .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
         .test-audio-btn { background: #222; color: var(--gold); border: 1px solid var(--gold); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 15px; font-size: 0.8rem; transition: 0.2s;}
         .test-audio-btn:hover { background: var(--gold); color: black; }
-        
-        /* VIDEO TAB SPECIFIC STYLES */
-        #video-tab { display: none; flex-direction: column; gap: 10px; height: calc(100% - 45px); padding: 10px; }
-        .video-controls { background: var(--card-bg); padding: 12px; border-radius: 6px; border-bottom: 3px solid var(--gold); display: flex; align-items: center; gap: 20px; justify-content: center; }
-        .video-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; min-height: 0; }
-        .video-box { background: #000; border-radius: 6px; border: 1px solid #333; display: flex; flex-direction: column; overflow: hidden; }
-        .video-box h4 { margin: 5px; text-align: center; color: var(--gold); font-size: 0.9rem; text-transform: uppercase; }
-        video { width: 100%; height: 100%; background: black; object-fit: contain; }
-
-        /* DATA ELEMENTS */
         .win-prob-container { width: 300px; text-align: center; }
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
@@ -70,7 +79,9 @@
         <div class="alert-content">
             <p class="alert-title">New Pit Alert</p>
             <div id="alert-subsystem" class="alert-subsystem">SUBSYSTEM</div>
-            <div><div id="alert-severity" class="alert-severity-tag">Severity: 0</div></div>
+            <div>
+                <div id="alert-severity" class="alert-severity-tag">Severity: 0</div>
+            </div>
             <div id="alert-issue" class="alert-issue">Issue Description</div>
             <button class="alert-dismiss" onclick="dismissPitAlert()">DISMISS / ACKNOWLEDGE</button>
         </div>
@@ -93,8 +104,8 @@
     </div>
 
     <div class="nav-tabs">
-        <button id="strat-btn" class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
-        <button id="video-btn" class="tab-btn" onclick="switchTab('video')">MATCH VIDEO REVIEW</button>
+        <button class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
+        <button class="tab-btn">MATCH VIDEO REVIEW</button>
     </div>
 
     <div id="strategy-tab" class="dashboard-wrapper">
@@ -132,7 +143,7 @@
                     <span class="red-text" style="font-size: 1.1rem; font-weight: bold; text-shadow: 1px 1px 2px black;">Red Est: <span id="red-total-potential">0</span></span>
                     <span class="blue-text" style="font-size: 1.1rem; font-weight: bold; text-shadow: 1px 1px 2px black;">Blue Est: <span id="blue-total-potential">0</span></span>
                 </div>
-                <div class="chart-container" style="height: 180px;"><canvas id="combinedScoringChart"></canvas></div>
+                <div class="chart-container"><canvas id="combinedScoringChart"></canvas></div>
             </div>
             <div class="card red-card">
                 <h3 class="red-text">Red Breakdown</h3>
@@ -145,38 +156,18 @@
             <div class="card red-card">
                 <h3 class="red-text">Red Nav & Rank</h3>
                 <div style="display: flex; flex: 1; gap: 8px;">
-                    <div class="chart-container" style="flex: 2;"><canvas id="redNavChart"></canvas></div>
-                    <div id="red-deaths" class="death-grid" style="flex: 1;"></div>
-                    <div id="red-citrus" class="badge-grid" style="flex: 1;"></div>
+                    <div class="chart-container"><canvas id="redNavChart"></canvas></div>
+                    <div id="red-deaths" class="death-grid"></div>
+                    <div id="red-citrus" class="badge-grid"></div>
                 </div>
             </div>
             <div class="card blue-card">
                 <h3 class="blue-text">Blue Nav & Rank</h3>
                 <div style="display: flex; flex: 1; gap: 8px;">
-                    <div class="chart-container" style="flex: 2;"><canvas id="blueNavChart"></canvas></div>
-                    <div id="blue-deaths" class="death-grid" style="flex: 1;"></div>
-                    <div id="blue-citrus" class="badge-grid" style="flex: 1;"></div>
+                    <div class="chart-container"><canvas id="blueNavChart"></canvas></div>
+                    <div id="blue-deaths" class="death-grid"></div>
+                    <div id="blue-citrus" class="badge-grid"></div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="video-tab">
-        <div class="video-controls">
-            <span style="font-weight:bold; color:var(--gold);">SELECT MATCH TO REVIEW:</span>
-            <select id="video-match-picker" class="match-select" style="min-width: 150px;" onchange="updateVideoSources()">
-                <option value="">No local videos found</option>
-            </select>
-            <button class="test-audio-btn" style="padding: 10px 30px; font-size: 1rem;" onclick="syncVideos()">SYNC & PLAY BOTH</button>
-        </div>
-        <div class="video-container">
-            <div class="video-box">
-                <h4>Close-Up View</h4>
-                <video id="vid-close" controls preload="auto"></video>
-            </div>
-            <div class="video-box">
-                <h4>Far-Field View</h4>
-                <video id="vid-far" controls preload="auto"></video>
             </div>
         </div>
     </div>
@@ -193,10 +184,9 @@
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
         let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
         let announcedQueueMatch = -1, announcedPrepMatch = -1;
+        
+        // Memory of seen alerts (prevents cycling and refreshing bugs)
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
-
-        // --- NEW VIDEO VARIABLES ---
-        let availableMatches = [];
 
         // Fetch voices early
         if ('speechSynthesis' in window) {
@@ -228,46 +218,93 @@
 
         function announceAlert(customText) {
             if ('speechSynthesis' in window) {
+                // Instantly clear any old/stuck audio queues so the speech fires exactly right now
                 window.speechSynthesis.cancel(); 
+
                 const textToSpeak = customText || "New Match Alert";
                 const utterance = new SpeechSynthesisUtterance(textToSpeak);
                 const voices = window.speechSynthesis.getVoices();
-                const preferredVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+                
+                // Fallback Logic: Try British/Aussie -> Try Any English -> Try Computer's Default
+                const preferredVoice = voices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.name.includes('UK') || v.name.includes('Australia')) 
+                                       || voices.find(v => v.lang.startsWith('en')) 
+                                       || voices[0];
+                
                 if (preferredVoice) utterance.voice = preferredVoice;
+                
+                // Make the voice slower and calmer
                 utterance.rate = 0.85; 
                 utterance.pitch = 0.9;
+                
                 window.speechSynthesis.speak(utterance);
             }
         }
 
         function processPitAlerts(data) {
+            if (!data || data.length === 0) return;
             const latest = data[data.length - 1];
-            if (!latest) return;
+            
             const issueKey = Object.keys(latest).find(k => k.toLowerCase().includes('issue')) || 'Issue';
             const subKey = Object.keys(latest).find(k => k.toLowerCase().includes('subsystem')) || 'Subsystem';
             const sevKey = Object.keys(latest).find(k => k.toLowerCase().includes('severity')) || 'Severity #';
-            const timeKey = Object.keys(latest).find(k => k.toLowerCase().includes('timestamp')) || 'Timestamp';
+            const timeKey = Object.keys(latest).find(k => k.toLowerCase().includes('timestamp') || k.toLowerCase().includes('time')) || '';
 
             const rawIssue = latest[issueKey] ? String(latest[issueKey]).trim() : "";
             const rawSub = latest[subKey] ? String(latest[subKey]).trim() : "GENERAL";
             const rawSev = latest[sevKey] ? String(latest[sevKey]).trim() : "";
-            const rawTime = latest[timeKey] ? String(latest[timeKey]).trim() : "";
-            const alertID = rawTime + "|" + rawIssue + "|" + rawSub;
+            const rawTime = timeKey && latest[timeKey] ? String(latest[timeKey]).trim() : "";
 
+            // Create a unique identifier for this exact row to prevent cycling
+            const alertID = rawTime + "|" + rawIssue + "|" + rawSub + "|" + rawSev;
+
+            // Only trigger if we haven't seen this specific alert ID before
             if (!seenAlerts.includes(alertID)) {
+                
+                // Add to history and save to browser memory
                 seenAlerts.push(alertID);
-                if (seenAlerts.length > 50) seenAlerts.shift();
+                if (seenAlerts.length > 50) seenAlerts.shift(); // Keep memory limit to last 50
                 localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
                 
-                document.getElementById('alert-subsystem').innerText = rawSub;
-                document.getElementById('alert-issue').innerText = rawIssue || "CHECK GOOGLE SHEET";
+                const displayIssue = rawIssue === "" ? "ALL GOOD!" : rawIssue;
+                document.getElementById('alert-subsystem').innerText = rawSub || "GENERAL";
+                document.getElementById('alert-issue').innerText = displayIssue;
+                
                 const overlay = document.getElementById('match-alert-overlay');
+                const sevEl = document.getElementById('alert-severity');
+
+                if (rawSev === "") {
+                    sevEl.innerText = "Severity: N/A";
+                    overlay.style.backgroundColor = "#004d00"; // Deep Green for empty severity
+                } else {
+                    const sevMatch = rawSev.match(/\d+/);
+                    const sev = sevMatch ? parseInt(sevMatch[0], 10) : 0;
+                    sevEl.innerText = `Severity: ${sev}`;
+                    
+                    if (sev === 1) overlay.style.backgroundColor = "#2196F3"; // Blue
+                    else if (sev === 2) overlay.style.backgroundColor = "#4CAF50"; // Standard Green
+                    else if (sev === 3) overlay.style.backgroundColor = "#FF9800"; // Orange
+                    else if (sev === 4) overlay.style.backgroundColor = "#F44336"; // Red
+                    else if (sev >= 5) overlay.style.backgroundColor = "#000000"; // Black
+                    else overlay.style.backgroundColor = "#000000"; // Default
+                }
+                
                 overlay.style.display = "flex";
+
+                // Speak the default pit alert!
                 announceAlert();
+
+                // 2.5 MINUTE AUTO-TIMEOUT (150,000 ms)
+                if(alertTimer) clearTimeout(alertTimer);
+                alertTimer = setTimeout(() => {
+                    dismissPitAlert();
+                }, 150000); 
             }
         }
 
-        function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = "none"; }
+        function dismissPitAlert() {
+            document.getElementById('match-alert-overlay').style.display = "none";
+            if(alertTimer) clearTimeout(alertTimer);
+        }
 
         function processLiveSchedule(live, tba) {
             const fieldMatch = String(live[0]['Current Match Number'] || '');
@@ -287,34 +324,69 @@
             })).filter(m => m.id);
 
             const selector = document.getElementById('match-selector');
-            if (!userManuallySelected || !selector.value) {
+            const prev = selector.value;
+            if (!userManuallySelected || !prev) {
                 selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
                 selector.value = targetNum;
             }
 
-            // Alerts (Prep/Queue)
-            if (matchesAway === 3 && dismissedPrepMatch !== targetNum) document.getElementById('prep-warning-overlay').style.display = "flex";
-            if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) document.getElementById('full-screen-warning').style.display = "flex";
+            const match = scheduleData.find(m => m.id === targetNum);
+            const bumper = document.getElementById('bumper-color');
+            if (match) {
+                if (match.redTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; }
+                else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
+            }
+
+            // NEW: PREP WARNING (3 Matches Away)
+            if (matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+                document.getElementById('prep-warning-overlay').style.display = "flex";
+                if (announcedPrepMatch !== targetNum) {
+                    announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
+                    announcedPrepMatch = targetNum;
+                }
+            } else {
+                document.getElementById('prep-warning-overlay').style.display = "none";
+            }
+
+            // QUEUE WARNING (0-2 Matches Away)
+            if (matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
+                document.getElementById('full-screen-warning').style.display = "flex";
+                if (announcedQueueMatch !== targetNum) {
+                    announceAlert("Now Queueing");
+                    announcedQueueMatch = targetNum;
+                }
+            } else {
+                document.getElementById('full-screen-warning').style.display = "none";
+            }
         }
 
         function updateDashboard() {
             const mId = document.getElementById('match-selector').value;
             const match = scheduleData.find(m => m.id == mId);
             if (!match) return;
-            const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n) || {};
+
+            const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
             const getRank = (n) => rankingsDataCache.find(t => Number(t['Team']) === n) || { Rank: '--' };
             const getEPA = (n) => { const t = epaDataCache.find(x => Number(x['Team']) === n); return t ? Number(t['Total EPA']) : 0; };
 
             const rEPA = match.redTeams.reduce((s, n) => s + getEPA(n), 0);
             const bEPA = match.blueTeams.reduce((s, n) => s + getEPA(n), 0);
+            
             document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
             document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
             document.getElementById('red-fill').style.width = (rEPA / (rEPA + bEPA) * 100) + "%";
             document.getElementById('blue-fill').style.width = (bEPA / (rEPA + bEPA) * 100) + "%";
+            document.getElementById('red-prob-text').innerText = (rEPA/(rEPA+bEPA)*100).toFixed(0) + "%";
+            document.getElementById('blue-prob-text').innerText = (bEPA/(rEPA+bEPA)*100).toFixed(0) + "%";
 
-            renderTable('red-table-body', match.redTeams, match.redTeams.map(getT));
-            renderTable('blue-table-body', match.blueTeams, match.blueTeams.map(getT));
-            renderCharts(match.redTeams.map(getT), match.blueTeams.map(getT), match.redTeams, match.blueTeams);
+            const rD = match.redTeams.map(getT); const bD = match.blueTeams.map(getT);
+            
+            document.getElementById('red-total-potential').innerText = rD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
+            document.getElementById('blue-total-potential').innerText = bD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
+
+            renderTable('red-table-body', match.redTeams, rD);
+            renderTable('blue-table-body', match.blueTeams, bD);
+            renderCharts(rD, bD, match.redTeams, match.blueTeams);
             drawBadges(match.redTeams, 'red-citrus', 'red-deaths', getT, getRank);
             drawBadges(match.blueTeams, 'blue-citrus', 'blue-deaths', getT, getRank);
         }
@@ -338,9 +410,9 @@
             });
             const nav = (id, labs, dat) => new Chart(document.getElementById(id), {
                 type: 'bar', data: { labels: labs, datasets: [
-                    { label: 'Bump %', data: dat.map(d => (parseFloat(d['Bump %']) || 0) * 100), backgroundColor: '#ef5350' },
-                    { label: 'Trench %', data: dat.map(d => (parseFloat(d['Trench %']) || 0) * 100), backgroundColor: '#ab47bc' }
-                ]}, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { max: 100, ticks: { color: 'white' } }, y: { ticks: { color: 'white' } } } }
+                    { label: 'Bump', data: dat.map(d => (parseFloat(d['Bump %']) || 0) * 100), backgroundColor: '#ef5350' },
+                    { label: 'Trench', data: dat.map(d => (parseFloat(d['Trench %']) || 0) * 100), backgroundColor: '#ab47bc' }
+                ]}, options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { color: 'white' } }, y: { ticks: { color: 'white' } } } }
             });
             charts.rN = nav('redNavChart', rL, rD); charts.bN = nav('blueNavChart', bL, bD);
         }
@@ -350,71 +422,26 @@
             const dEl = document.getElementById(deathsId); dEl.innerHTML = '';
             list.forEach(n => {
                 const t = getT(n); const r = getRank(n);
-                cEl.innerHTML += `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">R:${r.Rank} C:${(t["Avg Citrus"]||0).toFixed(1)}</div>`;
+                cEl.innerHTML += `<div class="citrus-badge" style="background:#1b5e20; color:white; font-size:0.7rem;">R:${r.Rank} C:${(t["Avg Citrus"]||1).toFixed(1)}</div>`;
                 dEl.innerHTML += `<div class="death-badge" style="background:#b71c1c; color:white; font-size:0.7rem;">D:${t["Total Times Died"]||0}</div>`;
             });
         }
 
-        // --- NEW TAB SWITCHING LOGIC ---
-        function switchTab(t) {
-            document.getElementById('strategy-tab').style.display = (t === 'strategy') ? 'flex' : 'none';
-            document.getElementById('video-tab').style.display = (t === 'video') ? 'flex' : 'none';
-            
-            document.getElementById('strat-btn').classList.toggle('active', t === 'strategy');
-            document.getElementById('video-btn').classList.toggle('active', t === 'video');
-
-            if (t === 'video') loadVideoManifest();
-        }
-
-        // --- NEW VIDEO FUNCTIONS ---
-// --- UPDATED VIDEO MANIFEST LOADER ---
-async function loadVideoManifest() {
-    try {
-        // Adding '?t=' + Date.now() is the "Cache Buster"
-        // It makes the browser think it's a brand new file every time
-        const response = await fetch('./matches/manifest.js?t=' + Date.now());
-        const text = await response.text();
-        
-        // This executes the manifest.js content
-        eval(text); 
-
-        const picker = document.getElementById('video-match-picker');
-        if (availableMatches && availableMatches.length > 0) {
-            picker.innerHTML = availableMatches.map(m => 
-                `<option value="${m}">${m.replace('_', ' ')}</option>`
-            ).join('');
-            updateVideoSources();
-        } else {
-            picker.innerHTML = '<option value="">No matches found</option>';
-        }
-    } catch (e) {
-        console.error("Error loading manifest:", e);
-    }
-}
-
-        function updateVideoSources() {
-            const match = document.getElementById('video-match-picker').value;
-            const v1 = document.getElementById('vid-close');
-            const v2 = document.getElementById('vid-far');
-            if (match) {
-                v1.src = `matches/${match}/${match}_Close.mp4`;
-                v2.src = `matches/${match}/${match}_Far.mp4`;
-                v1.load(); v2.load();
-            }
-        }
-
-        function syncVideos() {
-            const v1 = document.getElementById('vid-close');
-            const v2 = document.getElementById('vid-far');
-            v1.pause(); v2.pause();
-            v1.currentTime = 0; v2.currentTime = 0;
-            v1.play(); v2.play();
-        }
-
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
-        function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
-        function dismissPrep() { dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('prep-warning-overlay').style.display = "none"; }
+        
+        function dismissWarning() { 
+            dismissedMatch = parseInt(document.getElementById('target-match').innerText); 
+            document.getElementById('full-screen-warning').style.display = "none"; 
+        }
 
+        function dismissPrep() { 
+            dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); 
+            document.getElementById('prep-warning-overlay').style.display = "none"; 
+        }
+
+        function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
+
+        // FAST POLLING: Now checks for data every 5 seconds (5000ms)
         fetchData();
         setInterval(fetchData, 5000); 
     </script>
