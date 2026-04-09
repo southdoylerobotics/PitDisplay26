@@ -342,7 +342,7 @@
         }
 
         // ALERTS & UTILS
-        function processPitAlerts(data) {
+       function processPitAlerts(data) {
             const latest = data[data.length - 1];
             if (!latest) return;
 
@@ -354,17 +354,27 @@
                 return key ? latest[key] : null;
             };
 
-            const issue = findValue(['Issue', 'description']) || "";
-            const sub = findValue(['Subsystem', 'part']) || "GENERAL";
+            let issue = findValue(['Issue', 'description']) || "";
+            let sub = findValue(['Subsystem', 'part']) || "";
             const rawSev = String(findValue(['Severity']) || "0");
             
             // 2. Extract the number from the severity string
             const sev = parseInt(rawSev.replace(/\D/g, '')) || 0;
-            const alertID = issue + sub + sev;
+            
+            // Create a foolproof ID based on the spreadsheet row number and severity
+            // This guarantees that identical blank submissions aren't ignored
+            const alertID = "row_" + data.length + "_sev_" + sev;
 
-            // 3. Only trigger if it's a new alert and the issue isn't blank
-            if (!seenAlerts.includes(alertID) && issue.trim() !== "") {
+            // Failsafes for blank or "none" inputs
+            if (issue.trim() === "") issue = "Unknown Issue";
+            if (sub.trim() === "" || sub.toLowerCase() === "none") sub = "GENERAL";
+
+            // 3. Trigger if it's a new row and the severity is greater than 0
+            if (!seenAlerts.includes(alertID) && sev > 0) {
                 seenAlerts.push(alertID);
+                
+                // Keep the array from growing infinitely and crashing local storage
+                if (seenAlerts.length > 50) seenAlerts.shift();
                 localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
 
                 // UPDATE THE UI TEXT
