@@ -43,20 +43,19 @@
         }
         .alert-dismiss:hover { background: white; color: black; }
 
-        /* Prep Warning - Dynamic Colors based on Alliance */
-        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; padding: 20px; }
-        .prep-red { animation: prepFlashRed 2s infinite; background: rgba(211, 47, 47, 0.95); }
-        @keyframes prepFlashRed { 0% { background-color: rgba(180, 20, 20, 0.95); } 50% { background-color: rgba(220, 50, 50, 0.95); } 100% { background-color: rgba(180, 20, 20, 0.95); } }
-        
-        .prep-blue { animation: prepFlashBlue 2s infinite; background: rgba(25, 118, 210, 0.95); }
-        @keyframes prepFlashBlue { 0% { background-color: rgba(20, 80, 180, 0.95); } 50% { background-color: rgba(50, 120, 220, 0.95); } 100% { background-color: rgba(20, 80, 180, 0.95); } }
+        /* Prep Warning */
+        .prep-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9998; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: prepFlash 2s infinite; background: rgba(255, 152, 0, 0.95); padding: 20px; }
+        @keyframes prepFlash { 0% { background-color: rgba(255, 140, 0, 0.95); } 50% { background-color: rgba(255, 165, 0, 0.95); } 100% { background-color: rgba(255, 140, 0, 0.95); } }
 
         /* Queue Warning */
         .warning-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; animation: fullScreenFlash 1s infinite; background: rgba(0, 0, 0, 0.85); }
         @keyframes fullScreenFlash { 0% { background-color: rgba(211, 47, 47, 0.95); } 50% { background-color: rgba(255, 82, 82, 0.95); } 100% { background-color: rgba(211, 47, 47, 0.95); } }
 
         /* Dashboard Wrapper & Original Styles */
-        .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: 100vh; padding: 8px; gap: 8px; }
+        .nav-tabs { display: flex; background: #1a1a1a; border-bottom: 2px solid var(--gold); padding: 5px 10px; gap: 10px; }
+        .tab-btn { background: #333; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .tab-btn.active { background: var(--gold); color: black; }
+        .dashboard-wrapper { display: flex; flex-direction: column; width: 100%; height: calc(100% - 45px); padding: 8px; gap: 8px; }
         .header { flex: none; display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 8px 15px; border-radius: 6px; border-bottom: 3px solid var(--gold); }
         .match-select { padding: 4px; border-radius: 4px; background: #222; color: white; border: 1px solid var(--gold); font-weight: bold; }
         .test-audio-btn { background: #222; color: var(--gold); border: 1px solid var(--gold); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-left: 15px; font-size: 0.8rem; transition: 0.2s;}
@@ -88,11 +87,11 @@
         </div>
     </div>
 
-    <div id="prep-warning-overlay" class="prep-overlay prep-red" style="display: none;">
+    <div id="prep-warning-overlay" class="prep-overlay" style="display: none;">
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <h1 style="font-size: 5rem; margin: 0; color: white;">PREP FOR MATCH</h1>
             <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queing.</h2>
-            <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #333; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
+            <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; border-radius: 15px; background: #fff; color: #ff9800; border: none; cursor: pointer; margin-top: 30px;">ACKNOWLEDGE</button>
         </div>
     </div>
 
@@ -102,6 +101,11 @@
             <h2 style="font-size: 3rem;">MATCHES AWAY: <span id="warning-matches-away">--</span></h2>
             <button onclick="dismissWarning()" style="font-size: 3rem; font-weight: bold; padding: 30px 60px; border-radius: 15px; background: #fff; color: #d32f2f; border: none; cursor: pointer;">ON OUR WAY!</button>
         </div>
+    </div>
+
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="switchTab('strategy')">STRATEGY DASHBOARD</button>
+        <button class="tab-btn">MATCH VIDEO REVIEW</button>
     </div>
 
     <div id="strategy-tab" class="dashboard-wrapper">
@@ -171,14 +175,15 @@
     <script>
         const TEAM_NUMBER = 6517;
         const AVERAGES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=131746992&single=true&output=csv";
-        const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=373862560&single=true&output=csv"; // Assuming this now serves Nexus_Queuing data
+        const LIVE_EXPORT_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=995335638&single=true&output=csv";
+        const TBA_MATCHES_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=863329017&single=true&output=csv";
         const STATBOTICS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1460216648&single=true&output=csv";
         const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
         const ALERTS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTO--99Lt66LIT8sp0aCcPCph-_1_SIBpM_wVE1wYR3K1YQ20qM9gx5YLDjYAuQQO99-fSGonG7jWLl/pub?gid=1037931044&single=true&output=csv";
 
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
-        let dismissedMatch = "--", dismissedPrepMatch = "--", userManuallySelected = false, alertTimer = null;
-        let announcedQueueMatch = "--", announcedPrepMatch = "--";
+        let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false, alertTimer = null;
+        let announcedQueueMatch = -1, announcedPrepMatch = -1;
         
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
 
@@ -189,21 +194,20 @@
         async function fetchData() {
             try {
                 const ts = `&t=${Date.now()}`;
-                const [avgRes, liveRes, epaRes, rankRes, alertRes] = await Promise.all([
-                    fetch(AVERAGES_URL+ts), fetch(LIVE_EXPORT_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts)
+                const [avgRes, liveRes, tbaRes, epaRes, rankRes, alertRes] = await Promise.all([
+                    fetch(AVERAGES_URL+ts), fetch(LIVE_EXPORT_URL+ts), fetch(TBA_MATCHES_URL+ts), fetch(STATBOTICS_URL+ts), fetch(TBA_RANKINGS_URL+ts), fetch(ALERTS_URL+ts)
                 ]);
                 
                 teamDataCache = Papa.parse(await avgRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 epaDataCache = Papa.parse(await epaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 rankingsDataCache = Papa.parse(await rankRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const liveData = Papa.parse(await liveRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+                const tbaData = Papa.parse(await tbaRes.text(), { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
                 const alertsData = Papa.parse(await alertRes.text(), { header: true, skipEmptyLines: true }).data;
-                
-                // Parse Nexus Data without headers to rely on strictly generated column indexes
-                const liveData = Papa.parse(await liveRes.text(), { header: false, dynamicTyping: true, skipEmptyLines: true }).data;
 
                 if (alertsData.length > 0) processPitAlerts(alertsData);
-                if (liveData.length) {
-                    processNexusSchedule(liveData);
+                if (liveData.length && tbaData.length) {
+                    processLiveSchedule(liveData, tbaData);
                     updateDashboard();
                     document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
                 }
@@ -218,15 +222,13 @@
                 const utterance = new SpeechSynthesisUtterance(textToSpeak);
                 const voices = window.speechSynthesis.getVoices();
                 
-                // Look for a calm, British female voice
-                const preferredVoice = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Female') || v.name.includes('Google UK English Female') || v.name.toLowerCase().includes('samantha') || v.name.toLowerCase().includes('serena'))) 
-                                       || voices.find(v => v.lang === 'en-GB') 
-                                       || voices.find(v => v.lang.startsWith('en') && v.name.includes('Female'))
+                const preferredVoice = voices.find(v => v.lang === 'en-GB' || v.lang === 'en-AU' || v.name.includes('UK') || v.name.includes('Australia')) 
+                                       || voices.find(v => v.lang.startsWith('en')) 
                                        || voices[0];
                 
                 if (preferredVoice) utterance.voice = preferredVoice;
-                utterance.rate = 0.82; // Slower for calmness
-                utterance.pitch = 1.0; // Natural pitch
+                utterance.rate = 0.85; 
+                utterance.pitch = 0.9;
                 
                 window.speechSynthesis.speak(utterance);
             }
@@ -284,108 +286,81 @@
             }
         }
 
-        function dismissPitAlert() {
-            document.getElementById('match-alert-overlay').style.display = "none";
-            if(alertTimer) clearTimeout(alertTimer);
-        }
-
-        function processNexusSchedule(liveData) {
-            if (!liveData || liveData.length === 0) return;
-
-            let currentFieldMatchIndex = -1;
-            let currentFieldMatchName = "--";
-
-            let next6517MatchIndex = -1;
-            let next6517MatchName = "--";
-            let isRed = false;
-            let isBlue = false;
-            let matchFound = false;
-
-            scheduleData = []; // Rebuild strictly from the Nexus Sheet
-
-            for (let i = 0; i < liveData.length; i++) {
-                let row = liveData[i];
-                
-                // Skip if this looks like a header row
-                if (i === 0 && isNaN(parseInt(row[4])) && String(row[0]).toLowerCase().includes("match")) continue;
-
-                let matchLabel = String(row[0]).trim();
-                let status = String(row[1]).toUpperCase();
-
-                let r1 = Number(row[4]), r2 = Number(row[5]), r3 = Number(row[6]);
-                let b1 = Number(row[7]), b2 = Number(row[8]), b3 = Number(row[9]);
-
-                if (matchLabel) {
-                    scheduleData.push({
-                        id: matchLabel,
-                        redTeams: [r1, r2, r3].filter(n => n),
-                        blueTeams: [b1, b2, b3].filter(n => n)
-                    });
-                }
-
-                // Recognize current field match from the exact Nexus Status column string
-                if (status.includes("ON FIELD")) {
-                    currentFieldMatchIndex = scheduleData.length - 1;
-                    currentFieldMatchName = matchLabel;
-                }
-
-                // Recognize next 6517 match (going top to bottom)
-                if (!matchFound && !status.includes("FINISHED")) {
-                    if (r1 === TEAM_NUMBER || r2 === TEAM_NUMBER || r3 === TEAM_NUMBER || b1 === TEAM_NUMBER || b2 === TEAM_NUMBER || b3 === TEAM_NUMBER) {
-                        next6517MatchIndex = scheduleData.length - 1;
-                        next6517MatchName = matchLabel;
-                        if (r1 === TEAM_NUMBER || r2 === TEAM_NUMBER || r3 === TEAM_NUMBER) isRed = true;
-                        if (b1 === TEAM_NUMBER || b2 === TEAM_NUMBER || b3 === TEAM_NUMBER) isBlue = true;
-                        matchFound = true;
-                    }
-                }
+        function processLiveSchedule(live, tba) {
+            if (!live || !live[0]) return;
+            
+            // Flexibly find correct column names regardless of exact typing or whitespace
+            const keys = Object.keys(live[0]);
+            const statusCol = keys.find(k => k.trim().toLowerCase() === 'nexus_status') || 'Nexus_Status';
+            const matchCol = keys.find(k => k.trim().toLowerCase() === 'match' || k.trim().toLowerCase().includes('current match')) || 'Match';
+            const awayCol = keys.find(k => k.trim().toLowerCase().includes('matches until 6517')) || 'Matches Until 6517';
+            
+            let fieldMatchStr = '';
+            let rawAway = '';
+            
+            // Find the exact row where Nexus_Status indicates "On field" (Case Insensitive)
+            const onFieldRow = live.find(row => String(row[statusCol] || '').toLowerCase().includes('on field'));
+            
+            if (onFieldRow) {
+                fieldMatchStr = String(onFieldRow[matchCol] || '');
+                rawAway = String(onFieldRow[awayCol] || '');
+            } else {
+                // Safe fallback to first row just in case "On field" isn't present
+                fieldMatchStr = String(live[0][matchCol] || '');
+                rawAway = String(live[0][awayCol] || '');
             }
+            
+            // Use Regular Expressions to strip away words and grab ONLY the first number it finds
+            const fieldMatchNumMatch = fieldMatchStr.match(/\d+/);
+            const fieldMatchNum = fieldMatchNumMatch ? parseInt(fieldMatchNumMatch[0], 10) : NaN;
+            
+            const matchesAwayMatch = String(rawAway).match(/\d+/);
+            const matchesAway = matchesAwayMatch ? parseInt(matchesAwayMatch[0], 10) : NaN;
 
-            // Calculate Matches Away
-            let matchesAway = NaN;
-            if (currentFieldMatchIndex !== -1 && next6517MatchIndex !== -1) {
-                matchesAway = next6517MatchIndex - currentFieldMatchIndex;
-                if (matchesAway < 0) matchesAway = 0; // Guard for edge cases
-            }
+            const currentNum = !isNaN(fieldMatchNum) ? fieldMatchNum : 0;
+            const targetNum = currentNum + (!isNaN(matchesAway) ? matchesAway : 0);
 
-            document.getElementById('field-match').innerText = currentFieldMatchName;
-            document.getElementById('target-match').innerText = next6517MatchName;
+            document.getElementById('field-match').innerText = !isNaN(fieldMatchNum) ? fieldMatchNum : '--';
+            document.getElementById('target-match').innerText = targetNum || '--';
             document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
             document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
 
-            // Populate Dropdown Match Selector
+            scheduleData = tba.map(row => ({
+                // Strips words from TBA matching too, ensuring it doesn't break
+                id: parseInt(String(row['Match Number']).match(/\d+/) || [0], 10),
+                redTeams: [Number(row['Red 1']), Number(row['Red 2']), Number(row['Red 3'])],
+                blueTeams: [Number(row['Blue 1']), Number(row['Blue 2']), Number(row['Blue 3'])]
+            })).filter(m => m.id);
+
             const selector = document.getElementById('match-selector');
             const prev = selector.value;
             if (!userManuallySelected || !prev) {
-                selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
-                if (next6517MatchName !== "--") selector.value = next6517MatchName;
+                selector.innerHTML = scheduleData.map(m => `<option value="${m.id}">Match ${m.id}</option>`).join('');
+                if(targetNum) selector.value = targetNum;
             }
 
+            const match = scheduleData.find(m => m.id === targetNum);
             const bumper = document.getElementById('bumper-color');
-            if (next6517MatchName !== "--") {
-                if (isRed) { bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; }
-                else if (isBlue) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
+            if (match) {
+                if (match.redTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; }
+                else if (match.blueTeams.includes(TEAM_NUMBER)) { bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; }
             }
 
-            // PREP WARNING (Trigger 3 matches away)
-            const prepOverlay = document.getElementById('prep-warning-overlay');
-            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== next6517MatchName) {
-                prepOverlay.className = 'prep-overlay ' + (isRed ? 'prep-red' : 'prep-blue');
-                prepOverlay.style.display = "flex";
-                if (announcedPrepMatch !== next6517MatchName) {
-                    announceAlert("Prep for match. Put bumpers on and get a new battery. Around 5 to 7 minutes until queueing.");
-                    announcedPrepMatch = next6517MatchName;
+            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+                document.getElementById('prep-warning-overlay').style.display = "flex";
+                if (announcedPrepMatch !== targetNum) {
+                    announceAlert("Put bumpers on and get new battery. Around 5 to 7 minutes until queueing.");
+                    announcedPrepMatch = targetNum;
                 }
             } else {
-                prepOverlay.style.display = "none";
+                document.getElementById('prep-warning-overlay').style.display = "none";
             }
 
-            // QUEUE WARNING (Trigger 2 matches away or less)
-            if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== next6517MatchName) {
+            if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
-                if (announcedQueueMatch !== next6517MatchName) {
-                    announceAlert("It is time to queue. Gather the drive team and head to the field.");
-                    announcedQueueMatch = next6517MatchName;
+                if (announcedQueueMatch !== targetNum) {
+                    announceAlert("Now Queueing");
+                    announcedQueueMatch = targetNum;
                 }
             } else {
                 document.getElementById('full-screen-warning').style.display = "none";
@@ -394,7 +369,7 @@
 
         function updateDashboard() {
             const mId = document.getElementById('match-selector').value;
-            const match = scheduleData.find(m => m.id === mId);
+            const match = scheduleData.find(m => m.id == mId);
             if (!match) return;
 
             const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
@@ -406,15 +381,10 @@
             
             document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
             document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
-            
-            const totalEPA = rEPA + bEPA;
-            const rPercent = totalEPA > 0 ? (rEPA / totalEPA * 100) : 50;
-            const bPercent = totalEPA > 0 ? (bEPA / totalEPA * 100) : 50;
-
-            document.getElementById('red-fill').style.width = rPercent + "%";
-            document.getElementById('blue-fill').style.width = bPercent + "%";
-            document.getElementById('red-prob-text').innerText = rPercent.toFixed(0) + "%";
-            document.getElementById('blue-prob-text').innerText = bPercent.toFixed(0) + "%";
+            document.getElementById('red-fill').style.width = (rEPA / (rEPA + bEPA) * 100) + "%";
+            document.getElementById('blue-fill').style.width = (bEPA / (rEPA + bEPA) * 100) + "%";
+            document.getElementById('red-prob-text').innerText = (rEPA/(rEPA+bEPA)*100).toFixed(0) + "%";
+            document.getElementById('blue-prob-text').innerText = (bEPA/(rEPA+bEPA)*100).toFixed(0) + "%";
 
             const rD = match.redTeams.map(getT); const bD = match.blueTeams.map(getT);
             
@@ -467,14 +437,16 @@
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
         
         function dismissWarning() { 
-            dismissedMatch = document.getElementById('target-match').innerText; 
+            dismissedMatch = parseInt(document.getElementById('target-match').innerText); 
             document.getElementById('full-screen-warning').style.display = "none"; 
         }
 
         function dismissPrep() { 
-            dismissedPrepMatch = document.getElementById('target-match').innerText; 
+            dismissedPrepMatch = parseInt(document.getElementById('target-match').innerText); 
             document.getElementById('prep-warning-overlay').style.display = "none"; 
         }
+
+        function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
         fetchData();
         setInterval(fetchData, 5000); 
