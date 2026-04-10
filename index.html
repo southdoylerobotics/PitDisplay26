@@ -72,6 +72,7 @@
         <div style="text-align: center; display: flex; flex-direction: column; align-items: center;">
             <h1 style="font-size: 5rem; margin: 0; color: white;">PREP FOR MATCH</h1>
             <h2 style="font-size: 3.5rem; color: white; max-width: 90vw; line-height: 1.2;">Put bumpers on and get new battery. Around 5-7 minutes until queueing.</h2>
+            <button onclick="dismissPrep()" style="font-size: 2.5rem; font-weight: bold; padding: 20px 50px; margin-top: 30px; border-radius: 15px; background: #fff; color: #000; border: none; cursor: pointer;">GOT IT / DISMISS</button>
         </div>
     </div>
 
@@ -212,6 +213,9 @@
             }
         }
 
+        // Add this global variable right near the top of your script where you define 'dismissedMatch', 'announcedQueueMatch', etc.
+        let highestSeenFieldMatch = 0;
+
         function processLiveExport(live) {
             const row2 = live[0]; // PapaParse header:true makes Row 2 index 0
             
@@ -222,10 +226,22 @@
             };
 
             const rawField = String(getVal('Match ID') || '');
+            const currentNum = parseInt(rawField.replace(/\D/g, '')) || 0;
+
+            // STALE DATA PROTECTION (Fixes the cache bouncing issue)
+            // If the incoming match is less than the highest match we've already processed, 
+            // Google's CDN is handing us an old cached file. We ignore it.
+            if (currentNum > 0 && currentNum < highestSeenFieldMatch) {
+                console.warn(`Ignored stale data: Sheet says match ${currentNum}, but we already saw ${highestSeenFieldMatch}.`);
+                return; 
+            }
+            if (currentNum > highestSeenFieldMatch) {
+                highestSeenFieldMatch = currentNum;
+            }
+
             const rawTarget = String(getVal('Next 6517 Match') || '');
             const rawAway = getVal('Matches Until 6517');
 
-            const currentNum = parseInt(rawField.replace(/\D/g, '')) || 0;
             const targetNum = parseInt(rawTarget.replace(/\D/g, '')) || 0;
             const matchesAway = (rawAway !== "" && rawAway !== null) ? Number(rawAway) : NaN;
 
@@ -240,7 +256,7 @@
                 document.getElementById('match-selector').value = targetNum;
             }
 
-            // Bumper Color Logic
+            // Bumper Color Logic & Prep Background
             const match = scheduleData.find(m => m.id === targetNum);
             const bumper = document.getElementById('bumper-color');
             const prepOverlay = document.getElementById('prep-warning-overlay');
@@ -249,30 +265,36 @@
                 if (match.redTeams.includes(TEAM_NUMBER)) { 
                     bumper.innerText = "[RED]"; 
                     bumper.style.color = "var(--red-alliance)"; 
-                    prepOverlay.style.background = "rgba(211, 47, 47, 0.95)";
+                    // Use backgroundColor specifically to ensure it renders correctly
+                    prepOverlay.style.backgroundColor = "rgba(211, 47, 47, 0.95)";
                 } else if (match.blueTeams.includes(TEAM_NUMBER)) { 
                     bumper.innerText = "[BLUE]"; 
                     bumper.style.color = "var(--blue-alliance)"; 
-                    prepOverlay.style.background = "rgba(25, 118, 210, 0.95)";
+                    prepOverlay.style.backgroundColor = "rgba(25, 118, 210, 0.95)";
                 }
             }
 
-            // Overlay Triggers (Removed dismissedPrepMatch logic to force it to stay)
+            // PREP OVERLAY TRIGGER (Matches Away === 3)
             if (!isNaN(matchesAway) && matchesAway === 3) {
                 prepOverlay.style.display = "flex";
                 if (announcedPrepMatch !== targetNum) {
                     announceAlert("Prep for match. Bumpers and battery.");
                     announcedPrepMatch = targetNum;
                 }
-            } else { prepOverlay.style.display = "none"; }
+            } else { 
+                prepOverlay.style.display = "none"; 
+            }
 
+            // QUEUE OVERLAY TRIGGER (Matches Away <= 2)
             if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
                 if (announcedQueueMatch !== targetNum) {
                     announceAlert("Time to queue.");
                     announcedQueueMatch = targetNum;
                 }
-            } else { document.getElementById('full-screen-warning').style.display = "none"; }
+            } else { 
+                document.getElementById('full-screen-warning').style.display = "none"; 
+            }
         }
 
         // STRATEGY & VISUALS
