@@ -215,13 +215,30 @@
 
         function processLiveExport(live) {
             const row2 = live[0]; 
-            const getVal = (search) => {
-                const key = Object.keys(row2).find(k => k.toLowerCase().trim().includes(search.toLowerCase()));
-                return key ? row2[key] : null;
+            
+            // Smarter, safer helper function: checks for exact matches first, then partials
+            const getVal = (possibleNames) => {
+                const keys = Object.keys(row2);
+                for (let name of possibleNames) {
+                    let exactMatch = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+                    if (exactMatch) return row2[exactMatch];
+                }
+                for (let name of possibleNames) {
+                    let partialMatch = keys.find(k => k.trim().toLowerCase().includes(name.toLowerCase()));
+                    if (partialMatch) return row2[partialMatch];
+                }
+                return null;
             };
 
-            const rawField = String(getVal('Match ID') || '');
+            // Safely grab the match data using multiple possible common column names
+            const rawField = String(getVal(['Field Match', 'Match', 'Match ID', 'Current Match']) || '');
             const currentNum = parseInt(rawField.replace(/\D/g, '')) || 0;
+
+            const rawTarget = String(getVal(['Next 6517 Match', 'Next Match', 'Target Match']) || '');
+            const targetNum = parseInt(rawTarget.replace(/\D/g, '')) || 0;
+
+            const rawAway = getVal(['Matches Until 6517', 'Matches Away', 'Matches Until']);
+            const matchesAway = (rawAway !== "" && rawAway !== null) ? Number(rawAway) : NaN;
 
             // Updated Stale Data Logic with Counter
             if (currentNum > 0 && currentNum < highestSeenFieldMatch) {
@@ -241,18 +258,13 @@
                 }
             }
 
-            // Extract Live EPA and Alliance Teams directly from Live_Export
-            liveMatchTeams.redEPA = parseFloat(getVal('Red EPA')) || 0;
-            liveMatchTeams.blueEPA = parseFloat(getVal('Blue EPA')) || 0;
-            liveMatchTeams.red = [parseInt(getVal('Red 1')), parseInt(getVal('Red 2')), parseInt(getVal('Red 3'))].filter(n => !isNaN(n));
-            liveMatchTeams.blue = [parseInt(getVal('Blue 1')), parseInt(getVal('Blue 2')), parseInt(getVal('Blue 3'))].filter(n => !isNaN(n));
+            // Extract Live EPA and Alliance Teams 
+            liveMatchTeams.redEPA = parseFloat(getVal(['Red EPA', 'Red Alliance EPA'])) || 0;
+            liveMatchTeams.blueEPA = parseFloat(getVal(['Blue EPA', 'Blue Alliance EPA'])) || 0;
+            liveMatchTeams.red = [parseInt(getVal(['Red 1'])), parseInt(getVal(['Red 2'])), parseInt(getVal(['Red 3']))].filter(n => !isNaN(n));
+            liveMatchTeams.blue = [parseInt(getVal(['Blue 1'])), parseInt(getVal(['Blue 2'])), parseInt(getVal(['Blue 3']))].filter(n => !isNaN(n));
 
-            const rawTarget = String(getVal('Next 6517 Match') || '');
-            const rawAway = getVal('Matches Until 6517');
-
-            const targetNum = parseInt(rawTarget.replace(/\D/g, '')) || 0;
-            const matchesAway = (rawAway !== "" && rawAway !== null) ? Number(rawAway) : NaN;
-
+            // Update the Top Banner UI
             document.getElementById('field-match').innerText = currentNum || '--';
             document.getElementById('target-match').innerText = targetNum || '--';
             document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
@@ -274,6 +286,7 @@
                 }
             }
 
+            // Pop-up Triggers
             if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum && dismissedMatch !== targetNum) {
                 prepOverlay.style.display = "flex";
                 if (announcedPrepMatch !== targetNum) { announceAlert("Prep for match. Bumpers and battery."); announcedPrepMatch = targetNum; }
