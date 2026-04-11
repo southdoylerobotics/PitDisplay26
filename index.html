@@ -488,8 +488,8 @@
                 else overlay.style.backgroundColor = "#ff9800";
 
                 overlay.style.display = "flex";
-                if (sev === 5) announceAlert("OH NO! DANGER! DANGER! DANGER! New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
-                else announceAlert("New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+                if (sev === 5) announceAlert("OH NO! DANGER! DANGER! DANGER! New Pit Alert.);
+                else announceAlert("New Pit Alert.);
             }
         }
 
@@ -515,7 +515,7 @@
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
         fetchData();
-        setInterval(fetchData, 10000); 
+        setInterval(fetchData, 5000); 
     </script>
 </body>
 </html>
