@@ -168,10 +168,10 @@
         
         let liveMatchTeams = { red: [], blue: [], redEPA: 0, blueEPA: 0 };
 
-        // Helper function with a strict timeout
+        // Helper function with a more forgiving timeout (15 seconds) for pit Wi-Fi
         async function safeFetchCSV(url, name) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds max
+            const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15 seconds!
 
             try {
                 const response = await fetch(url + `&t=${Date.now()}`, { signal: controller.signal });
@@ -185,48 +185,94 @@
             }
         }
 
-        async function fetchData() {
-            document.getElementById('status-text').innerText = "Syncing...";
-            document.getElementById('status-text').style.color = "#777";
-
-            try {
-                const [avgText, nexusText, liveText, epaText, alertText, rankText] = await Promise.all([
-                    safeFetchCSV(AVERAGES_URL, "Averages"),
-                    safeFetchCSV(NEXUS_QUEUING_URL, "Schedule"),
-                    safeFetchCSV(LIVE_EXPORT_URL, "Live Export"),
-                    safeFetchCSV(STATBOTICS_URL, "Statbotics EPA"),
-                    safeFetchCSV(ALERTS_URL, "Alerts"),
-                    safeFetchCSV(TBA_RANKINGS_URL, "Rankings")
-                ]);
-                
-                if (avgText) teamDataCache = Papa.parse(avgText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                if (epaText) epaDataCache = Papa.parse(epaText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                if (rankText) rankingsDataCache = Papa.parse(rankText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-
-                if (alertText) {
-                    const alertsData = Papa.parse(alertText, { header: true, skipEmptyLines: true }).data;
-                    if (alertsData.length > 0) processPitAlerts(alertsData);
+        // Updated to be bulletproof for alliance team columns
+        function processLiveExport(live) {
+            const row2 = live[0]; 
+            
+            const getVal = (possibleNames) => {
+                const keys = Object.keys(row2);
+                for (let name of possibleNames) {
+                    let exactMatch = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+                    if (exactMatch) return row2[exactMatch];
                 }
-                
-                if (nexusText) {
-                    const nexusData = Papa.parse(nexusText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                    processNexusSchedule(nexusData);
+                for (let name of possibleNames) {
+                    let partialMatch = keys.find(k => k.trim().toLowerCase().includes(name.toLowerCase()));
+                    if (partialMatch) return row2[partialMatch];
                 }
-                
-                if (liveText) {
-                    const liveData = Papa.parse(liveText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-                    if (liveData.length > 0) processLiveExport(liveData);
+                return null;
+            };
+
+            const rawField = String(getVal(['Field Match', 'Match', 'Match ID', 'Current Match']) || '');
+            const currentNum = parseInt(rawField.replace(/\D/g, '')) || 0;
+
+            const rawTarget = String(getVal(['Next 6517 Match', 'Next Match', 'Target Match']) || '');
+            const targetNum = parseInt(rawTarget.replace(/\D/g, '')) || 0;
+
+            const rawAway = getVal(['Matches Until 6517', 'Matches Away', 'Matches Until']);
+            const matchesAway = (rawAway !== "" && rawAway !== null) ? Number(rawAway) : NaN;
+
+            if (currentNum > 0 && currentNum < highestSeenFieldMatch) {
+                staleMatchCounter++;
+                if (staleMatchCounter > 3) {
+                    console.warn(`Overriding stale protection: Resetting highest match to ${currentNum}.`);
+                    highestSeenFieldMatch = currentNum;
+                    staleMatchCounter = 0;
+                } else {
+                    return; 
                 }
-
-                updateDashboard();
-                document.getElementById('status-text').innerText = "Last Sync: " + new Date().toLocaleTimeString();
-                document.getElementById('status-text').style.color = "#777";
-
-            } catch (e) { 
-                console.error("Critical Fetch Error:", e); 
-                document.getElementById('status-text').innerText = "Sync Error - Retrying...";
-                document.getElementById('status-text').style.color = "var(--red-alliance)";
+            } else {
+                staleMatchCounter = 0;
+                if (currentNum > highestSeenFieldMatch) {
+                    highestSeenFieldMatch = currentNum;
+                }
             }
+
+            // Bulletproof team extraction
+            liveMatchTeams.redEPA = parseFloat(getVal(['Red EPA', 'Red Alliance EPA'])) || 0;
+            liveMatchTeams.blueEPA = parseFloat(getVal(['Blue EPA', 'Blue Alliance EPA'])) || 0;
+            
+            liveMatchTeams.red = [
+                parseInt(getVal(['Red 1', 'R1', 'Red Team 1'])), 
+                parseInt(getVal(['Red 2', 'R2', 'Red Team 2'])), 
+                parseInt(getVal(['Red 3', 'R3', 'Red Team 3']))
+            ].filter(n => !isNaN(n));
+            
+            liveMatchTeams.blue = [
+                parseInt(getVal(['Blue 1', 'B1', 'Blue Team 1'])), 
+                parseInt(getVal(['Blue 2', 'B2', 'Blue Team 2'])), 
+                parseInt(getVal(['Blue 3', 'B3', 'Blue Team 3']))
+            ].filter(n => !isNaN(n));
+
+            document.getElementById('field-match').innerText = currentNum || '--';
+            document.getElementById('target-match').innerText = targetNum || '--';
+            document.getElementById('matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
+            document.getElementById('warning-matches-away').innerText = !isNaN(matchesAway) ? matchesAway : '--';
+
+            if (!userManuallySelected && targetNum) document.getElementById('match-selector').value = targetNum;
+
+            const match = scheduleData.find(m => m.id === targetNum);
+            const bumper = document.getElementById('bumper-color');
+            const prepOverlay = document.getElementById('prep-warning-overlay');
+
+            if (match) {
+                if (match.redTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; 
+                    prepOverlay.style.backgroundColor = "rgba(211, 47, 47, 0.95)";
+                } else if (match.blueTeams.includes(TEAM_NUMBER)) { 
+                    bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; 
+                    prepOverlay.style.backgroundColor = "rgba(25, 118, 210, 0.95)";
+                }
+            }
+
+            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum && dismissedMatch !== targetNum) {
+                prepOverlay.style.display = "flex";
+                if (announcedPrepMatch !== targetNum) { announceAlert("Prep for match. Bumpers and battery."); announcedPrepMatch = targetNum; }
+            } else { prepOverlay.style.display = "none"; }
+
+            if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
+                document.getElementById('full-screen-warning').style.display = "flex";
+                if (announcedQueueMatch !== targetNum) { announceAlert("Time to queue."); announcedQueueMatch = targetNum; }
+            } else { document.getElementById('full-screen-warning').style.display = "none"; }
         }
 
         function processNexusSchedule(data) {
