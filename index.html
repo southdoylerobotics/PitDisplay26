@@ -169,12 +169,17 @@
         let liveMatchTeams = { red: [], blue: [], redEPA: 0, blueEPA: 0 };
 
         // Helper function with a strict timeout
+        
         async function safeFetchCSV(url, name) {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds max
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
 
             try {
-                const response = await fetch(url + `&t=${Date.now()}`, { signal: controller.signal });
+                // Check if the URL already has a '?' to decide how to append the timestamp
+                const separator = url.includes('?') ? '&' : '?';
+                const liveUrl = url + separator + "t=" + Date.now();
+                
+                const response = await fetch(liveUrl, { signal: controller.signal });
                 clearTimeout(timeoutId);
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
                 return await response.text();
@@ -184,6 +189,7 @@
                 return null;
             }
         }
+        
 
         async function fetchData() {
             document.getElementById('status-text').innerText = "Syncing...";
@@ -410,13 +416,48 @@
             }).join('');
         }
 
-        function processPitAlerts(data) {
+ function processPitAlerts(data) {
             const latest = data[data.length - 1];
             if (!latest) return;
             const findValue = (searchTerms) => {
                 const key = Object.keys(latest).find(k => searchTerms.some(term => k.toLowerCase().trim().includes(term.toLowerCase())));
                 return key ? latest[key] : null;
             };
+
+            let issue = findValue(['Issue', 'description']) || "";
+            let sub = findValue(['Subsystem', 'part']) || "";
+            const rawSev = String(findValue(['Severity']) || "0");
+            const sev = parseInt(rawSev.replace(/\D/g, '')) || 0;
+            
+            const alertID = "row_" + data.length + "_sev_" + sev;
+            if (issue.trim() === "") issue = "Unknown Issue";
+            if (sub.trim() === "" || sub.toLowerCase() === "none") sub = "GENERAL";
+
+            if (!seenAlerts.includes(alertID) && sev > 0) {
+                seenAlerts.push(alertID);
+                if (seenAlerts.length > 50) seenAlerts.shift();
+                localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
+
+                document.getElementById('alert-subsystem').innerText = sub.toUpperCase();
+                document.getElementById('alert-issue').innerText = issue;
+                document.getElementById('alert-severity').innerText = "Severity: " + sev;
+
+                const overlay = document.getElementById('match-alert-overlay');
+                if (sev >= 4) overlay.style.backgroundColor = "black";
+                else if (sev === 3) overlay.style.backgroundColor = "#d32f2f";
+                else overlay.style.backgroundColor = "#ff9800";
+
+                // Force it to the absolute front of the screen and display it
+                overlay.style.zIndex = "999999";
+                overlay.style.display = "flex";
+
+                // Give the browser 500ms to draw the screen before locking the thread with audio
+                setTimeout(() => {
+                    if (sev === 5) announceAlert("OH NO! DANGER! DANGER! DANGER! New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+                    else announceAlert("New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+                }, 500);
+            }
+        }
 
             let issue = findValue(['Issue', 'description']) || "";
             let sub = findValue(['Subsystem', 'part']) || "";
