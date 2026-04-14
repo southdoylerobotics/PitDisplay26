@@ -416,13 +416,6 @@
             }).join('');
         }
 
- function processPitAlerts(data) {
-            const latest = data[data.length - 1];
-            if (!latest) return;
-            const findValue = (searchTerms) => {
-                const key = Object.keys(latest).find(k => searchTerms.some(term => k.toLowerCase().trim().includes(term.toLowerCase())));
-                return key ? latest[key] : null;
-            };
 
             let issue = findValue(['Issue', 'description']) || "";
             let sub = findValue(['Subsystem', 'part']) || "";
@@ -510,6 +503,89 @@
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
         fetchData();
+        // --- THE EXPRESS LANE: ONLY FOR ALERTS ---
+        async function fetchAlertsExpress() {
+            try {
+                // Force a fresh fetch ignoring all caches
+                const liveUrl = ALERTS_URL + "?t=" + Date.now();
+                const response = await fetch(liveUrl);
+                const csvText = await response.text();
+                
+                // Break the CSV into rows and columns safely
+                const rows = csvText.split('\n').filter(row => row.trim() !== '');
+                if (rows.length < 2) return; // No alerts yet
+
+                // Clean the headers (removes any stray quotes or spaces)
+                const headers = rows[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
+                
+                // Grab the very last row (the newest alert)
+                const latestRowValues = rows[rows.length - 1].split(',');
+                let latestAlert = {};
+                headers.forEach((header, index) => {
+                    latestAlert[header] = latestRowValues[index] ? latestRowValues[index].replace(/^"|"$/g, '') : "";
+                });
+
+                // Find our data using the cleaned lowercase headers
+                let issue = latestAlert['issue'] || latestAlert['description'] || latestAlert['what is the issue?'] || "";
+                let sub = latestAlert['subsystem'] || latestAlert['part'] || "";
+                let rawSev = latestAlert['severity'] || "0";
+                let sev = parseInt(String(rawSev).replace(/\D/g, '')) || 0;
+
+                // FALLBACK: If we STILL can't find the issue, print the whole raw row so you can see why!
+                if (issue.trim() === "") {
+                    issue = "COULD NOT FIND COLUMN. RAW DATA: " + JSON.stringify(latestAlert);
+                }
+                if (sub.trim() === "" || sub.toLowerCase() === "none") sub = "GENERAL";
+
+                const alertID = "row_" + rows.length + "_sev_" + sev;
+
+                // If it's a new alert, show it!
+                if (!seenAlerts.includes(alertID) && sev > 0) {
+                    seenAlerts.push(alertID);
+                    if (seenAlerts.length > 50) seenAlerts.shift(); // Keep memory clean
+                    localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
+
+                    // Grab the HTML elements
+                    const elSub = document.getElementById('alert-subsystem');
+                    const elIssue = document.getElementById('alert-issue');
+                    const elSev = document.getElementById('alert-severity');
+                    const overlay = document.getElementById('match-alert-overlay');
+
+                    // Update the text
+                    if(elSub) elSub.innerText = sub.toUpperCase();
+                    if(elIssue) elIssue.innerText = issue;
+                    if(elSev) elSev.innerText = "Severity: " + sev;
+
+                    // Set background AND force text color so it doesn't blend in
+                    if (sev >= 4) {
+                        overlay.style.backgroundColor = "black";
+                        overlay.style.color = "white"; // White text on black
+                    } else if (sev === 3) {
+                        overlay.style.backgroundColor = "#d32f2f"; // Red
+                        overlay.style.color = "white";
+                    } else {
+                        overlay.style.backgroundColor = "#ff9800"; // Orange
+                        overlay.style.color = "black"; // Black text on orange
+                    }
+
+                    // Force to front and display
+                    overlay.style.zIndex = "999999";
+                    overlay.style.display = "flex";
+
+                    // Wait half a second for the screen to draw, then play audio
+                    setTimeout(() => {
+                        if (sev === 5) announceAlert("OH NO! DANGER! DANGER! DANGER! New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+                        else announceAlert("New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
+                    }, 500);
+                }
+            } catch (e) {
+                console.warn("⚠️ Express Alert Fetch Failed:", e);
+            }
+        }
+
+        // Run the express lane every 15 seconds independently of your main data!
+        fetchAlertsExpress();
+        setInterval(fetchAlertsExpress, 15000);
         setInterval(fetchData, 20000); 
     </script>
 </body>
