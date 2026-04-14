@@ -508,7 +508,16 @@
             try {
                 // Force a fresh fetch ignoring all caches
                 const liveUrl = ALERTS_URL + "?t=" + Date.now();
-                const response = await fetch(liveUrl);
+
+                // NEW: Aggressively block the browser from caching the redirect
+                const response = await fetch(liveUrl, {
+                    cache: 'no-store',
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
                 const csvText = await response.text();
                 
                 // Break the CSV into rows and columns safely
