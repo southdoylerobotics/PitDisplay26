@@ -47,13 +47,14 @@
         .prob-bar { width: 100%; height: 16px; background: #333; border-radius: 8px; overflow: hidden; display: flex; margin: 4px 0; }
         .live-banner { flex: none; background: #1f1f1f; color: var(--text); border-radius: 6px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #333; font-weight: bold; font-size: 1.1rem; }
         
-        /* ADJUSTED GRID LAYOUT: Top row reduced, bottom row increased */
         .content-grid { flex: 1 1 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 0.7fr 1.2fr 1.1fr; gap: 8px; min-height: 0; }
         .card { background: var(--card-bg); padding: 10px; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         .combined-card { grid-column: 1 / -1; } .red-card { border-left: 4px solid var(--red-alliance); } .blue-card { border-left: 4px solid var(--blue-alliance); }
         .data-table { width: 100%; border-collapse: collapse; font-size: 0.95rem; text-align: center; height: 100%; }
         .data-table th { background: rgba(255,255,255,0.1); padding: 4px; border-bottom: 2px solid #555; color: #ccc; font-size: 0.8em; }
         .data-table td { padding: 4px; border-bottom: 1px solid #333; }
+        .red-text { color: var(--red-alliance); }
+        .blue-text { color: var(--blue-alliance); }
     </style>
 </head>
 <body>
@@ -161,39 +162,37 @@
         const ALERTS_URL = "https://script.google.com/macros/s/AKfycbwF1XdkZrXg9fjcuvKAAOxjetYNpG2JeryAzCXStXvnYDh5VkpGKsG3crCcwbrn-Hs48w/exec";
         const TBA_RANKINGS_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSoFDHMJqYQfAOO-7AcFcX9VXyuxIZQ9AuJ21BLhdIoZA-mXa_B6NijbOj0ZWmK_SQlt-gEXMf21ei_/pub?gid=1866660804&single=true&output=csv";
 
+        // Global States
+        let isSyncing = false; 
         let charts = {}, teamDataCache = [], scheduleData = [], epaDataCache = [], rankingsDataCache = [];
         let dismissedMatch = -1, dismissedPrepMatch = -1, userManuallySelected = false;
         let announcedQueueMatch = -1, announcedPrepMatch = -1, highestSeenFieldMatch = 0, staleMatchCounter = 0;
         let seenAlerts = JSON.parse(localStorage.getItem('seenAlerts') || '[]');
-        
         let liveMatchTeams = { red: [], blue: [], redEPA: 0, blueEPA: 0 };
 
-        // Helper function with a strict timeout
-       // Helper function with a STRICT timeout covering the entire download
         async function safeFetchCSV(url, name) {
             const controller = new AbortController();
-            // Increased to 8 seconds to give Google Sheets time to calculate
             const timeoutId = setTimeout(() => controller.abort(), 8000); 
 
             try {
                 const separator = url.includes('?') ? '&' : '?';
                 const liveUrl = url + separator + "t=" + Date.now();
-                
                 const response = await fetch(liveUrl, { signal: controller.signal });
                 if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                
-                // Await the text BEFORE clearing the timeout so it doesn't hang here
                 const text = await response.text(); 
                 clearTimeout(timeoutId);
                 return text;
             } catch (e) {
                 clearTimeout(timeoutId);
-                console.warn(`⚠️ Failed to fetch ${name} or connection timed out.`, e);
+                console.warn(`⚠️ Failed to fetch ${name}`, e);
                 return null;
             }
         }
         
         async function fetchData() {
+            if (isSyncing) return;
+            isSyncing = true;
+
             const statusEl = document.getElementById('status-text');
             statusEl.innerText = "Syncing...";
             statusEl.style.color = "#777";
@@ -225,12 +224,20 @@
                 
                 statusEl.innerText = "Last Sync: " + new Date().toLocaleTimeString();
                 statusEl.style.color = "#777";
-
             } catch (e) { 
                 console.error("Critical Fetch Error:", e); 
                 statusEl.innerText = "Sync Error: Check Console";
-                statusEl.style.color = "#ff4d4d"; // Hardcoded bright red
+                statusEl.style.color = "#ff4d4d";
+            } finally {
+                isSyncing = false;
             }
+        }
+
+        // SMART SYNC MANAGER
+        async function startSmartSync() {
+            await fetchData();
+            // Wait 25 seconds AFTER the last sync finishes before starting next
+            setTimeout(startSmartSync, 25000); 
         }
 
         function processNexusSchedule(data) {
@@ -253,48 +260,26 @@
 
         function processLiveExport(live) {
             const row2 = live[0]; 
-            
             const getVal = (possibleNames) => {
                 const keys = Object.keys(row2);
                 for (let name of possibleNames) {
                     let exactMatch = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
                     if (exactMatch) return row2[exactMatch];
                 }
-                for (let name of possibleNames) {
-                    let partialMatch = keys.find(k => k.trim().toLowerCase().includes(name.toLowerCase()));
-                    if (partialMatch) return row2[partialMatch];
-                }
                 return null;
             };
 
-            const rawField = String(getVal(['Field Match', 'Match', 'Match ID', 'Current Match']) || '');
+            const rawField = String(getVal(['Field Match', 'Match', 'Current Match']) || '');
             const currentNum = parseInt(rawField.replace(/\D/g, '')) || 0;
-
-            const rawTarget = String(getVal(['Next 6517 Match', 'Next Match', 'Target Match']) || '');
+            const rawTarget = String(getVal(['Next 6517 Match', 'Target Match']) || '');
             const targetNum = parseInt(rawTarget.replace(/\D/g, '')) || 0;
-
-            const rawAway = getVal(['Matches Until 6517', 'Matches Away', 'Matches Until']);
+            const rawAway = getVal(['Matches Away', 'Matches Until']);
             const matchesAway = (rawAway !== "" && rawAway !== null) ? Number(rawAway) : NaN;
 
-            if (currentNum > 0 && currentNum < highestSeenFieldMatch) {
-                staleMatchCounter++;
-                if (staleMatchCounter > 3) {
-                    console.warn(`Overriding stale protection: Resetting highest match to ${currentNum}.`);
-                    highestSeenFieldMatch = currentNum;
-                    staleMatchCounter = 0;
-                } else {
-                    console.warn(`Ignored stale data: Sheet says match ${currentNum}, but we already saw ${highestSeenFieldMatch}.`);
-                    return; 
-                }
-            } else {
-                staleMatchCounter = 0;
-                if (currentNum > highestSeenFieldMatch) {
-                    highestSeenFieldMatch = currentNum;
-                }
-            }
+            highestSeenFieldMatch = Math.max(highestSeenFieldMatch, currentNum);
 
-            liveMatchTeams.redEPA = parseFloat(getVal(['Red EPA', 'Red Alliance EPA'])) || 0;
-            liveMatchTeams.blueEPA = parseFloat(getVal(['Blue EPA', 'Blue Alliance EPA'])) || 0;
+            liveMatchTeams.redEPA = parseFloat(getVal(['Red EPA'])) || 0;
+            liveMatchTeams.blueEPA = parseFloat(getVal(['Blue EPA'])) || 0;
             liveMatchTeams.red = [parseInt(getVal(['Red 1'])), parseInt(getVal(['Red 2'])), parseInt(getVal(['Red 3']))].filter(n => !isNaN(n));
             liveMatchTeams.blue = [parseInt(getVal(['Blue 1'])), parseInt(getVal(['Blue 2'])), parseInt(getVal(['Blue 3']))].filter(n => !isNaN(n));
 
@@ -307,22 +292,19 @@
 
             const match = scheduleData.find(m => m.id === targetNum);
             const bumper = document.getElementById('bumper-color');
-            const prepOverlay = document.getElementById('prep-warning-overlay');
-
             if (match) {
                 if (match.redTeams.includes(TEAM_NUMBER)) { 
                     bumper.innerText = "[RED]"; bumper.style.color = "var(--red-alliance)"; 
-                    prepOverlay.style.backgroundColor = "rgba(211, 47, 47, 0.95)";
                 } else if (match.blueTeams.includes(TEAM_NUMBER)) { 
                     bumper.innerText = "[BLUE]"; bumper.style.color = "var(--blue-alliance)"; 
-                    prepOverlay.style.backgroundColor = "rgba(25, 118, 210, 0.95)";
                 }
             }
 
-            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum && dismissedMatch !== targetNum) {
-                prepOverlay.style.display = "flex";
+            // Alerts Logic
+            if (!isNaN(matchesAway) && matchesAway === 3 && dismissedPrepMatch !== targetNum) {
+                document.getElementById('prep-warning-overlay').style.display = "flex";
                 if (announcedPrepMatch !== targetNum) { announceAlert("Prep for match. Bumpers and battery."); announcedPrepMatch = targetNum; }
-            } else { prepOverlay.style.display = "none"; }
+            } else { document.getElementById('prep-warning-overlay').style.display = "none"; }
 
             if (!isNaN(matchesAway) && matchesAway <= 2 && matchesAway >= 0 && dismissedMatch !== targetNum) {
                 document.getElementById('full-screen-warning').style.display = "flex";
@@ -335,10 +317,8 @@
             const mId = parseInt(document.getElementById('match-selector').value);
 
             if (!userManuallySelected && liveMatchTeams.red.length > 0) {
-                rTeams = liveMatchTeams.red;
-                bTeams = liveMatchTeams.blue;
-                rEPA = liveMatchTeams.redEPA;
-                bEPA = liveMatchTeams.blueEPA;
+                rTeams = liveMatchTeams.red; bTeams = liveMatchTeams.blue;
+                rEPA = liveMatchTeams.redEPA; bEPA = liveMatchTeams.blueEPA;
             } else {
                 const match = scheduleData.find(m => m.id === mId);
                 if (match) { rTeams = match.redTeams; bTeams = match.blueTeams; }
@@ -350,17 +330,13 @@
             const totalEPA = rEPA + bEPA;
             document.getElementById('red-epa-val').innerText = rEPA.toFixed(1);
             document.getElementById('blue-epa-val').innerText = bEPA.toFixed(1);
-            
             const rPct = totalEPA > 0 ? (rEPA / totalEPA * 100) : 50;
-            const bPct = totalEPA > 0 ? (bEPA / totalEPA * 100) : 50;
-            
             document.getElementById('red-fill').style.width = rPct + "%";
-            document.getElementById('blue-fill').style.width = bPct + "%";
+            document.getElementById('blue-fill').style.width = (100-rPct) + "%";
             document.getElementById('red-prob-text').innerText = rPct.toFixed(0) + "%";
-            document.getElementById('blue-prob-text').innerText = bPct.toFixed(0) + "%";
+            document.getElementById('blue-prob-text').innerText = (100-rPct).toFixed(0) + "%";
 
-            const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n || Number(t['Team']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0, "Avg Citrus":0, "Total Times Died":0};
-            
+            const getT = (n) => teamDataCache.find(t => Number(t['Team Number']) === n || Number(t['Team']) === n) || {"Avg Auto":0,"Avg Teleop":0,"Avg Endgame":0,"Avg Total":0};
             const rD = rTeams.map(getT); const bD = bTeams.map(getT);
             document.getElementById('red-total-potential').innerText = rD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
             document.getElementById('blue-total-potential').innerText = bD.reduce((s,t)=>s+(t['Avg Total']||0),0).toFixed(1);
@@ -368,29 +344,8 @@
             renderTable('red-table-body', rTeams, rD);
             renderTable('blue-table-body', bTeams, bD);
             
-            if(charts.comb) charts.comb.destroy();
-            const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
-            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
-                type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
-                    { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
-                    { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
-                    { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
-                ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white', boxWidth: 12, padding: 5 } } }, scales: { y: { ticks: { color: 'white' } }, x: { ticks: { color: 'white' } } } }
-            });
-
-            const getRank = (n) => {
-                const rankRow = rankingsDataCache.find(r => {
-                    const tKey = Object.keys(r).find(k => k.toLowerCase().includes('team'));
-                    return tKey && Number(r[tKey]) === n;
-                });
-                if (!rankRow) return { rank: '--', rp: '--' };
-                const rankKey = Object.keys(rankRow).find(k => k.toLowerCase() === 'rank');
-                const rpKey = Object.keys(rankRow).find(k => k.toLowerCase().includes('score') || k.toLowerCase().includes('rp') || k.toLowerCase().includes('point'));
-                return { rank: rankKey ? rankRow[rankKey] : '--', rp: rpKey ? rankRow[rpKey] : '--' };
-            };
-
-            renderRankTable('red-rank-body', rTeams, rD, getRank);
-            renderRankTable('blue-rank-body', bTeams, bD, getRank);
+            updateChart(rD, bD);
+            renderRankTables(rTeams, bTeams, rD, bD);
         }
 
         function renderTable(id, teams, data) {
@@ -400,34 +355,47 @@
             }).join('');
         }
 
-        function renderRankTable(id, teams, data, getRank) {
-            document.getElementById(id).innerHTML = teams.map((n, i) => {
-                const d = data[i];
-                const r = getRank(n);
-                return `<tr>
-                    <td style="color:var(--gold); font-weight:bold;">${n}</td>
-                    <td>${r.rank}</td>
-                    <td>${r.rp}</td>
-                    <td>${(d['Avg Citrus']||0).toFixed(1)}</td>
-                    <td>${d['Total Times Died']||0}</td>
-                </tr>`;
-            }).join('');
+        function updateChart(rD, bD) {
+            if(charts.comb) charts.comb.destroy();
+            const sum = (d, k) => d.reduce((s, t) => s + (parseFloat(t[k]) || 0), 0);
+            charts.comb = new Chart(document.getElementById('combinedScoringChart'), {
+                type: 'bar', data: { labels: ['Red', 'Blue'], datasets: [
+                    { label: 'Auto', data: [sum(rD, 'Avg Auto'), sum(bD, 'Avg Auto')], backgroundColor: '#FFD700' },
+                    { label: 'Tele', data: [sum(rD, 'Avg Teleop'), sum(bD, 'Avg Teleop')], backgroundColor: '#42a5f5' },
+                    { label: 'End', data: [sum(rD, 'Avg Endgame'), sum(bD, 'Avg Endgame')], backgroundColor: '#66bb6a' }
+                ]}, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: 'white', boxWidth: 12 } } }, scales: { y: { ticks: { color: 'white' } }, x: { ticks: { color: 'white' } } } }
+            });
+        }
+
+        function renderRankTables(rTeams, bTeams, rD, bD) {
+            const getRank = (n) => {
+                const rankRow = rankingsDataCache.find(r => {
+                    const tKey = Object.keys(r).find(k => k.toLowerCase().includes('team'));
+                    return tKey && Number(r[tKey]) === n;
+                });
+                if (!rankRow) return { rank: '--', rp: '--' };
+                const rankKey = Object.keys(rankRow).find(k => k.toLowerCase() === 'rank');
+                const rpKey = Object.keys(rankRow).find(k => k.toLowerCase().includes('rp'));
+                return { rank: rankKey ? rankRow[rankKey] : '--', rp: rpKey ? rankRow[rpKey] : '--' };
+            };
+            
+            const helper = (id, teams, data) => {
+                document.getElementById(id).innerHTML = teams.map((n, i) => {
+                    const r = getRank(n); const d = data[i];
+                    return `<tr><td style="color:var(--gold); font-weight:bold;">${n}</td><td>${r.rank}</td><td>${r.rp}</td><td>${(d['Avg Citrus']||0).toFixed(1)}</td><td>${d['Total Times Died']||0}</td></tr>`;
+                }).join('');
+            };
+            helper('red-rank-body', rTeams, rD);
+            helper('blue-rank-body', bTeams, bD);
         }
 
         function announceAlert(text) {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 const msg = new SpeechSynthesisUtterance(text);
-                const voices = window.speechSynthesis.getVoices();
-                let britishVoice = voices.find(v => v.lang.includes('en-GB') && (v.name.includes('Female') || v.name.includes('Google') || v.name.includes('Hazel') || v.name.includes('Susan')));
-                if (!britishVoice) britishVoice = voices.find(v => v.lang.includes('en-GB'));
-                if (britishVoice) msg.voice = britishVoice;
-                msg.pitch = 1.0; msg.rate = 0.9; msg.volume = 1.0;
-                window.speechSynthesis.speak(msg);
+                msg.rate = 0.9; window.speechSynthesis.speak(msg);
             }
         }
-
-        window.speechSynthesis.getVoices();
 
         function dismissPitAlert() { document.getElementById('match-alert-overlay').style.display = 'none'; }
         function dismissWarning() { dismissedMatch = parseInt(document.getElementById('target-match').innerText); document.getElementById('full-screen-warning').style.display = "none"; }
@@ -435,93 +403,42 @@
         function handleManualSelection() { userManuallySelected = true; updateDashboard(); }
         function switchTab(t) { document.getElementById('strategy-tab').style.display = t === 'strategy' ? 'flex' : 'none'; }
 
-        fetchData();
-        
-        // --- THE EXPRESS LANE: ONLY FOR ALERTS ---
+        // EXPRESS ALERTS Logic
         async function fetchAlertsExpress() {
             try {
-                // Force a fresh fetch ignoring all caches
                 const liveUrl = ALERTS_URL + "?t=" + Date.now();
-
                 const response = await fetch(liveUrl);
                 const csvText = await response.text();
-                
-                // Break the CSV into rows and columns safely
                 const rows = csvText.split('\n').filter(row => row.trim() !== '');
-                if (rows.length < 2) return; // No alerts yet
+                if (rows.length < 2) return;
 
-                // Clean the headers (removes any stray quotes or spaces)
                 const headers = rows[0].split(',').map(h => h.replace(/^"|"$/g, '').trim().toLowerCase());
-                
-                // Grab the very last row (the newest alert)
                 const latestRowValues = rows[rows.length - 1].split(',');
                 let latestAlert = {};
-                headers.forEach((header, index) => {
-                    latestAlert[header] = latestRowValues[index] ? latestRowValues[index].replace(/^"|"$/g, '') : "";
-                });
+                headers.forEach((h, i) => latestAlert[h] = latestRowValues[i] ? latestRowValues[i].replace(/^"|"$/g, '') : "");
 
-                // Find our data using the cleaned lowercase headers
-                let issue = latestAlert['issue'] || latestAlert['description'] || latestAlert['what is the issue?'] || "";
-                let sub = latestAlert['subsystem'] || latestAlert['part'] || "";
-                let rawSev = latestAlert['severity'] || "0";
-                let sev = parseInt(String(rawSev).replace(/\D/g, '')) || 0;
-
-                // FALLBACK: If we STILL can't find the issue, print the whole raw row so you can see why!
-                if (issue.trim() === "") {
-                    issue = "COULD NOT FIND COLUMN. RAW DATA: " + JSON.stringify(latestAlert);
-                }
-                if (sub.trim() === "" || sub.toLowerCase() === "none") sub = "GENERAL";
-
+                let issue = latestAlert['issue'] || latestAlert['description'] || "";
+                let sub = latestAlert['subsystem'] || "GENERAL";
+                let sev = parseInt(latestAlert['severity']) || 0;
                 const alertID = "row_" + rows.length + "_sev_" + sev;
 
-                // If it's a new alert, show it!
                 if (!seenAlerts.includes(alertID) && sev > 0) {
                     seenAlerts.push(alertID);
-                    if (seenAlerts.length > 50) seenAlerts.shift(); // Keep memory clean
                     localStorage.setItem('seenAlerts', JSON.stringify(seenAlerts));
-
-                    // Grab the HTML elements
-                    const elSub = document.getElementById('alert-subsystem');
-                    const elIssue = document.getElementById('alert-issue');
-                    const elSev = document.getElementById('alert-severity');
                     const overlay = document.getElementById('match-alert-overlay');
-
-                    // Update the text
-                    if(elSub) elSub.innerText = sub.toUpperCase();
-                    if(elIssue) elIssue.innerText = issue;
-                    if(elSev) elSev.innerText = "Severity: " + sev;
-
-                    // Set background AND force text color so it doesn't blend in
-                    if (sev >= 4) {
-                        overlay.style.backgroundColor = "black";
-                        overlay.style.color = "white"; // White text on black
-                    } else if (sev === 3) {
-                        overlay.style.backgroundColor = "#d32f2f"; // Red
-                        overlay.style.color = "white";
-                    } else {
-                        overlay.style.backgroundColor = "#ff9800"; // Orange
-                        overlay.style.color = "black"; // Black text on orange
-                    }
-
-                    // Force to front and display
-                    overlay.style.zIndex = "999999";
+                    document.getElementById('alert-subsystem').innerText = sub.toUpperCase();
+                    document.getElementById('alert-issue').innerText = issue;
+                    document.getElementById('alert-severity').innerText = "Severity: " + sev;
                     overlay.style.display = "flex";
-
-                    // Wait half a second for the screen to draw, then play audio
-                    setTimeout(() => {
-                        if (sev === 5) announceAlert("OH NO! DANGER! DANGER! DANGER! New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
-                        else announceAlert("New Pit Alert. Subsystem " + sub + ". Issue: " + issue);
-                    }, 500);
+                    setTimeout(() => announceAlert("New Pit Alert. " + sub + ". " + issue), 500);
                 }
-            } catch (e) {
-                console.warn("⚠️ Express Alert Fetch Failed:", e);
-            }
+            } catch (e) { console.warn("Alert Fetch Failed", e); }
         }
 
-        // Run the express lane every 15 seconds independently of your main data!
-        fetchAlertsExpress();
-        setInterval(fetchAlertsExpress, 15000);
-        setInterval(fetchData, 20000); 
+        // STARTUP
+        startSmartSync(); // Starts main data sync cycle
+        fetchAlertsExpress(); // Run alerts once immediately
+        setInterval(fetchAlertsExpress, 15000); // Alerts stay on a separate fast timer
     </script>
 </body>
 </html>
